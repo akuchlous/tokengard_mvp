@@ -1,0 +1,29 @@
+AWS Setup Information for tokengard.com
+========================================
+
+Hosted Zone ID: Z0277003KYIXXKVUAHRA
+Hosted Zone Name: tokengard.com.
+
+Nameservers (to be configured in domain registrar):
+- ns-1986.awsdns-56.co.uk
+- ns-329.awsdns-41.com
+- ns-627.awsdns-14.net
+- ns-1075.awsdns-06.org
+
+S3 Bucket: flask-app-453786152561
+S3 Website URL: http://flask-app-453786152561.s3-website-us-east-1.amazonaws.com
+
+SSL Certificate ARN: arn:aws:acm:us-east-1:453786152561:certificate/efda9060-c9a0-4eec-9b32-1ef8e4840e7b
+
+DNS Validation Records (add these to Route 53):
+- Name: _73823d91f4413e896a61cb88ee561ac0.tokengard.com
+- Type: CNAME
+- Value: _77dd5f429d1b6c9a0164172233341e02.xlfgrmvvlj.acm-validations.aws
+
+Next Steps:
+1. Complete domain registration in AWS Console
+2. Update nameservers in domain registrar to point to AWS nameservers above
+3. Add DNS validation records above to Route 53
+4. Wait for certificate validation (can take 5-30 minutes)
+5. Create CloudFront distribution
+6. Update DNS records to point to CloudFront

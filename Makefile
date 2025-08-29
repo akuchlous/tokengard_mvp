@@ -25,7 +25,27 @@ run:
 # Run tests
 test:
 	@echo "Running tests..."
-	pytest test_app.py -v
+	pytest tests/ -v
+
+test-unit:
+	@echo "Running unit tests..."
+	pytest tests/test_auth_functions.py -v -m "unit"
+
+test-e2e:
+	@echo "Running end-to-end tests..."
+	pytest tests/test_e2e.py -v -m "e2e"
+
+test-coverage:
+	@echo "Running tests with coverage..."
+	pytest --cov=. --cov-report=html --cov-report=term-missing
+
+test-security:
+	@echo "Running security tests..."
+	pytest tests/test_auth_functions.py::TestSecurityFeatures -v
+
+test-all:
+	@echo "Running all tests with coverage..."
+	pytest tests/ -v --cov=. --cov-report=html --cov-report=term-missing
 
 # Clean up cache files
 clean:

@@ -1,0 +1,17 @@
+{
+    "Changes": [
+        {
+            "Action": "CREATE",
+            "ResourceRecordSet": {
+                "Name": "_73823d91f4413e896a61cb88ee561ac0.tokengard.com",
+                "Type": "CNAME",
+                "TTL": 300,
+                "ResourceRecords": [
+                    {
+                        "Value": "_77dd5f429d1b6c9a0164172233341e02.xlfgrmvvlj.acm-validations.aws"
+                    }
+                ]
+            }
+        }
+    ]
+}
