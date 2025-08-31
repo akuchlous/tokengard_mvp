@@ -897,6 +897,60 @@ body {
     text-decoration: underline;
 }
 
+/* Profile info styling within auth-page context */
+.auth-page .profile-info {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 1px solid #e9ecef;
+}
+
+.auth-page .info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.auth-page .info-item:last-child {
+    border-bottom: none;
+}
+
+.auth-page .info-label {
+    color: #2c3e50;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.auth-page .info-value {
+    color: #7f8c8d;
+    font-size: 16px;
+}
+
+/* Button styling within auth-page context */
+.auth-page .btn {
+    display: inline-block;
+    padding: 12px 30px;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-align: center;
+    margin: 5px;
+}
+
+.auth-page .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.auth-page .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
     .home-page .home-container,
@@ -924,16 +978,20 @@ body {
         margin: 10px 0;
     }
     
-    .profile-page .info-item {
+    .auth-page .profile-info {
+        padding: 20px;
+    }
+    
+    .auth-page .info-item {
         flex-direction: column;
         align-items: flex-start;
         gap: 5px;
     }
     
-    .profile-page .logout-button,
-    .profile-page .home-button {
+    .auth-page .btn {
         display: block;
         margin: 10px 0;
+        width: 100%;
     }
 }
 
@@ -958,6 +1016,10 @@ body {
     .error-page .error-title,
     .auth-page .auth-header h1 {
         font-size: 24px;
+    }
+    
+    .auth-page .profile-info {
+        padding: 15px;
     }
 }
 

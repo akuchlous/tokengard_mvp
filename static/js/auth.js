@@ -337,16 +337,14 @@ class AuthManager {
                 this.showMessage(response.data.message, 'success');
                 
                 // Redirect to activation sent page after successful registration
-                setTimeout(() => {
-                    console.log('Redirecting to activation sent page...');
-                    if (response.data.redirect_url) {
-                        window.location.href = response.data.redirect_url;
-                    } else {
-                        // Fallback to activation sent page with email
-                        const email = this.formElements.email.value.trim();
-                        window.location.href = `/auth/activation-sent?email=${encodeURIComponent(email)}`;
-                    }
-                }, 2000);
+                console.log('Redirecting to activation sent page...');
+                if (response.data.redirect_url) {
+                    window.location.href = response.data.redirect_url;
+                } else {
+                    // Fallback to activation sent page with email
+                    const email = this.formElements.email.value.trim();
+                    window.location.href = `/auth/activation-sent?email=${encodeURIComponent(email)}`;
+                }
             } else {
                 this.showMessage(response.error || 'Registration failed', 'error');
             }
@@ -389,12 +387,9 @@ class AuthManager {
                 this.showMessage(response.data.message, 'success');
                 
                 // Store the redirect URL and navigate programmatically
-                // Use a longer delay to ensure token is properly stored
-                setTimeout(() => {
-                    console.log('About to navigate to protected route:', response.data.redirect_url);
-                    console.log('Token stored:', !!this.getAuthToken());
-                    this.navigateToProtectedRoute(response.data.redirect_url);
-                }, 2000);
+                console.log('About to navigate to protected route:', response.data.redirect_url);
+                console.log('Token stored:', !!this.getAuthToken());
+                this.navigateToProtectedRoute(response.data.redirect_url);
             } else {
                 this.showMessage(response.error || 'Login failed', 'error');
             }

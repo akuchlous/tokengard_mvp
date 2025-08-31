@@ -2,12 +2,15 @@
 
 {% block title %}User Profile - {{ user.email }}{% endblock %}
 
-{% block body_class %}profile-page{% endblock %}
+{% block body_class %}auth-page{% endblock %}
 
 {% block content %}
-<div class="profile-container">
-    <div class="profile-icon">👤</div>
-    <div class="profile-title">Welcome, {{ user.email }}!</div>
+<div class="auth-card">
+    <div class="auth-header">
+        <h1>👤 Welcome Back</h1>
+        <p>Your TokenGuard account profile</p>
+    </div>
+    
     <div class="profile-info">
         <div class="info-item">
             <span class="info-label">User ID:</span>
@@ -26,7 +29,10 @@
             <span class="info-value">{{ user.created_at }}</span>
         </div>
     </div>
-    <a href="{{ url_for('auth.logout') }}" class="logout-button">Logout</a>
-    <a href="{{ url_for('home') }}" class="home-button">Go to Home Page</a>
+    
+    <div class="auth-footer">
+        <p><a href="{{ url_for('auth.logout') }}" class="btn btn-primary">Logout</a></p>
+        <p><a href="{{ url_for('home') }}" class="home-link">← Back to Home</a></p>
+    </div>
 </div>
 {% endblock %}
