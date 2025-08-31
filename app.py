@@ -99,6 +99,11 @@ def create_app(test_config=None):
                 return render_error_page('User Not Found', 
                     'The requested user profile could not be found.', 404)
             
+            # Set session for API key management
+            from flask import session
+            session['user_id'] = authenticated_user.id
+            session['user_email'] = authenticated_user.email
+            
             if not authenticated_user.is_active():
                 return render_error_page('Account Not Activated', 
                     'This account has not been activated yet.', 403)

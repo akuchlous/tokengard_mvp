@@ -1,13 +1,22 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session
-from models import db, User, ActivationToken, PasswordResetToken
+from models import db, User, ActivationToken, PasswordResetToken, APIKey
 from auth_utils import (
     create_user, send_activation_email, authenticate_user, 
     generate_jwt_token, verify_jwt_token, send_password_reset_email,
     get_user_by_token, hash_password, verify_password
 )
 import re
+from functools import wraps
 
 auth = Blueprint('auth', __name__)
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Unauthorized. Please log in.'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
 def validate_email(email):
     """Validate email format"""
@@ -114,6 +123,10 @@ def activate_account(token):
     # Mark token as used
     activation_token.mark_used()
     
+    # Create default API key for the user
+    from models import create_default_api_key
+    create_default_api_key(user.id)
+    
     db.session.commit()
     
     flash('Account activated successfully! You can now log in.', 'success')
@@ -149,6 +162,10 @@ def login():
     # Update last login
     user.update_last_login()
     
+    # Set session for API key management
+    session['user_id'] = user.id
+    session['user_email'] = user.email
+    
     # Generate JWT token
     token = generate_jwt_token(user.id)
     
@@ -168,6 +185,196 @@ def logout():
     # In a real app, you might want to blacklist the JWT token
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('home'))
+
+# API Key Management Endpoints
+@auth.route('/api/keys', methods=['GET'])
+@login_required
+def list_api_keys():
+    """List all API keys for the authenticated user"""
+    try:
+        user_id = session.get('user_id')
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        api_keys = APIKey.query.filter_by(user_id=user_id).all()
+        
+        keys_data = []
+        for key in api_keys:
+            keys_data.append({
+                'id': key.id,
+                'key_name': key.key_name,
+                'key_value': key.key_value,
+                'state': key.state,
+                'created_at': key.created_at.isoformat() if key.created_at else None,
+                'last_used': key.last_used.isoformat() if key.last_used else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': keys_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Failed to retrieve API keys'}), 500
+
+@auth.route('/api/keys', methods=['POST'])
+@login_required
+def create_api_key():
+    """Create a new API key for the authenticated user"""
+    try:
+        user_id = session.get('user_id')
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        data = request.get_json()
+        key_name = data.get('key_name', '').strip()
+        
+        if not key_name:
+            return jsonify({'error': 'Key name is required'}), 400
+        
+        if len(key_name) != 6:
+            return jsonify({'error': 'Key name must be exactly 6 characters'}), 400
+        
+        # Check if key name already exists for this user
+        existing_key = APIKey.query.filter_by(user_id=user_id, key_name=key_name).first()
+        if existing_key:
+            return jsonify({'error': 'Key name already exists'}), 409
+        
+        # Generate new API key
+        from models import generate_api_key_value
+        key_value = generate_api_key_value()
+        
+        api_key = APIKey(
+            user_id=user_id,
+            key_name=key_name,
+            key_value=key_value,
+            state='enabled'
+        )
+        
+        db.session.add(api_key)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': api_key.id,
+                'key_name': api_key.key_name,
+                'key_value': api_key.key_value,
+                'state': api_key.state,
+                'created_at': api_key.created_at.isoformat()
+            }
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to create API key'}), 500
+
+@auth.route('/api/keys/<int:key_id>/toggle', methods=['POST'])
+@login_required
+def toggle_api_key(key_id):
+    """Enable or disable an API key"""
+    try:
+        user_id = session.get('user_id')
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        api_key = APIKey.query.filter_by(id=key_id, user_id=user_id).first()
+        
+        if not api_key:
+            return jsonify({'error': 'API key not found'}), 404
+        
+        # Toggle state
+        if api_key.state == 'enabled':
+            api_key.disable()
+            new_state = 'disabled'
+        else:
+            api_key.enable()
+            new_state = 'enabled'
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': api_key.id,
+                'key_name': api_key.key_name,
+                'state': new_state
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Failed to toggle API key'}), 500
+
+@auth.route('/api/keys/<int:key_id>/refresh', methods=['POST'])
+@login_required
+def refresh_api_key(key_id):
+    """Refresh the value of an API key"""
+    try:
+        user_id = session.get('user_id')
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        api_key = APIKey.query.filter_by(id=key_id, user_id=user_id).first()
+        
+        if not api_key:
+            return jsonify({'error': 'API key not found'}), 404
+        
+        if not api_key.is_enabled():
+            return jsonify({'error': 'Cannot refresh disabled API key'}), 400
+        
+        # Refresh the key value
+        api_key.refresh_key_value()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': api_key.id,
+                'key_name': api_key.key_name,
+                'key_value': api_key.key_value,
+                'state': api_key.state
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Failed to refresh API key'}), 500
+
+@auth.route('/api/keys/<int:key_id>', methods=['DELETE'])
+@login_required
+def delete_api_key(key_id):
+    """Delete an API key"""
+    try:
+        user_id = session.get('user_id')
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        api_key = APIKey.query.filter_by(id=key_id, user_id=user_id).first()
+        
+        if not api_key:
+            return jsonify({'error': 'API key not found'}), 404
+        
+        # Don't allow deletion of the default test_key
+        if api_key.key_name == 'test_key':
+            return jsonify({'error': 'Cannot delete the default test key'}), 400
+        
+        db.session.delete(api_key)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'API key deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to delete API key'}), 500
 
 @auth.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
