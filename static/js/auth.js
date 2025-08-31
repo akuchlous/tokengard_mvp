@@ -28,17 +28,26 @@ class AuthManager {
      * Sets up event listeners and form handling based on current page
      */
     init() {
+        console.log('AuthManager init called');
+        
         // Wait for common utilities to be available
         if (typeof window.messageDisplay === 'undefined') {
+            console.log('messageDisplay not ready, retrying in 100ms...');
             setTimeout(() => this.init(), 100);
             return;
         }
         
+        console.log('messageDisplay is ready, initializing forms...');
+        
         // Initialize based on current page
         if (document.getElementById('registerForm')) {
+            console.log('Found register form, initializing...');
             this.initRegistration();
         } else if (document.getElementById('loginForm')) {
+            console.log('Found login form, initializing...');
             this.initLogin();
+        } else {
+            console.log('No auth forms found on this page');
         }
         
         // Initialize password strength checker
@@ -52,6 +61,7 @@ class AuthManager {
      * Sets up validation, event listeners, and form submission handling
      */
     initRegistration() {
+        console.log('initRegistration called');
         this.currentForm = 'register';
         
         // Cache form elements for better performance
@@ -63,6 +73,14 @@ class AuthManager {
             submitBtn: document.getElementById('submitBtn')
         };
         
+        console.log('Form elements found:', {
+            form: !!this.formElements.form,
+            email: !!this.formElements.email,
+            password: !!this.formElements.password,
+            confirmPassword: !!this.formElements.confirmPassword,
+            submitBtn: !!this.formElements.submitBtn
+        });
+        
         // Set up real-time validation with debouncing for better performance
         const debouncedEmailValidation = debounce(() => this.validateEmail(), 300);
         const debouncedPasswordStrength = debounce(() => this.checkPasswordStrength(), 200);
@@ -71,9 +89,16 @@ class AuthManager {
         safeAddEventListener(this.formElements.email, 'blur', debouncedEmailValidation);
         safeAddEventListener(this.formElements.password, 'input', debouncedPasswordStrength);
         safeAddEventListener(this.formElements.confirmPassword, 'blur', () => this.validatePasswordMatch());
-        safeAddEventListener(this.formElements.form, 'submit', (e) => this.handleRegistration(e));
         
-        console.log('Registration form initialized');
+        // Use button click event as primary method since form submit isn't working reliably
+        safeAddEventListener(this.formElements.submitBtn, 'click', (e) => {
+            console.log('Submit button clicked!');
+            e.preventDefault();
+            e.stopPropagation();
+            this.handleRegistration(e);
+        });
+        
+        console.log('Registration form initialized successfully');
     }
     
     /**
@@ -276,13 +301,21 @@ class AuthManager {
      * @param {Event} e - Form submission event
      */
     async handleRegistration(e) {
+        console.log('handleRegistration called, preventing default...');
         e.preventDefault();
+        
+        console.log('Form data:', {
+            email: this.formElements.email.value,
+            password: this.formElements.password.value,
+            confirmPassword: this.formElements.confirmPassword.value
+        });
         
         // Validate all fields
         const emailValid = this.validateEmail();
         const passwordValid = this.validatePasswordMatch();
         
         if (!emailValid || !passwordValid) {
+            console.log('Validation failed');
             this.showMessage('Please fix the errors above', 'error');
             return;
         }
@@ -293,17 +326,26 @@ class AuthManager {
             password: this.formElements.password.value
         };
         
+        console.log('Making API request with data:', formData);
         this.setLoading(true, 'Creating Account...');
         
         try {
             const response = await this.makeApiRequest('/auth/register', formData);
+            console.log('API response:', response);
             
             if (response.success) {
                 this.showMessage(response.data.message, 'success');
                 
-                // Redirect to login after successful registration
+                // Redirect to activation sent page after successful registration
                 setTimeout(() => {
-                    window.location.href = '/auth/login';
+                    console.log('Redirecting to activation sent page...');
+                    if (response.data.redirect_url) {
+                        window.location.href = response.data.redirect_url;
+                    } else {
+                        // Fallback to activation sent page with email
+                        const email = this.formElements.email.value.trim();
+                        window.location.href = `/auth/activation-sent?email=${encodeURIComponent(email)}`;
+                    }
                 }, 2000);
             } else {
                 this.showMessage(response.error || 'Registration failed', 'error');

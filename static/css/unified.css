@@ -319,3 +319,81 @@ body {
         font-size: 24px;
     }
 }
+
+/* ===== ACTIVATION MESSAGE PAGE STYLES ===== */
+.activation-message {
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.icon-container {
+    margin-bottom: 2rem;
+}
+
+.email-icon {
+    font-size: 4rem;
+    display: block;
+}
+
+.activation-message h2 {
+    color: #27ae60;
+    margin-bottom: 1rem;
+}
+
+.activation-message p {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    color: #555;
+}
+
+.activation-steps {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin: 2rem 0;
+    text-align: left;
+}
+
+.activation-steps h3 {
+    margin-bottom: 1rem;
+    color: #3498db;
+}
+
+.activation-steps ol {
+    padding-left: 1.5rem;
+}
+
+.activation-steps li {
+    margin-bottom: 0.5rem;
+    color: #555;
+}
+
+.countdown {
+    background: #3498db;
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 2rem 0;
+}
+
+.countdown p {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+#countdown {
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin: 2rem 0;
+    flex-wrap: wrap;
+}
+
+.action-buttons .btn {
+    min-width: 150px;
+}

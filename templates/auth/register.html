@@ -42,9 +42,34 @@
     </div>
     
     <div id="message" class="message" style="display: none;"></div>
+    
+    <!-- Fallback for users without JavaScript -->
+    <noscript>
+        <div class="message error">
+            <p>JavaScript is required for this form to work properly. Please enable JavaScript and try again.</p>
+        </div>
+    </noscript>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+<script>
+// Debug script to check if JavaScript is working
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, checking form...');
+    const form = document.getElementById('registerForm');
+    if (form) {
+        console.log('Form found:', form);
+        console.log('AuthManager available:', !!window.authManager);
+        
+        // Check if AuthManager is ready
+        if (!window.authManager || !window.authManager.currentForm) {
+            console.log('AuthManager not ready yet');
+        } else {
+            console.log('AuthManager is ready');
+        }
+    }
+});
+</script>
 {% endblock %}

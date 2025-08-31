@@ -41,4 +41,25 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+<script>
+// Debug script to check if JavaScript is working
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, checking login form...');
+    const form = document.getElementById('loginForm');
+    if (form) {
+        console.log('Login form found:', form);
+        console.log('AuthManager available:', !!window.authManager);
+        
+        // Add a backup event listener in case the main one fails
+        form.addEventListener('submit', function(e) {
+            console.log('Backup login form submit handler triggered');
+            if (!window.authManager || !window.authManager.currentForm) {
+                console.log('AuthManager not ready, preventing default submission');
+                e.preventDefault();
+                alert('Please wait for the page to fully load and try again.');
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

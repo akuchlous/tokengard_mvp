@@ -63,18 +63,28 @@ def register():
         if send_activation_email(user, activation_token):
             return jsonify({
                 'message': 'Registration successful! Please check your email to activate your account.',
-                'user_id': user.user_id
+                'user_id': user.user_id,
+                'email': email,
+                'redirect_url': f'/auth/activation-sent?email={email}'
             }), 201
         else:
             # If email fails, still create user but return warning
             return jsonify({
                 'message': 'Account created but activation email failed to send. Please contact support.',
-                'user_id': user.user_id
+                'user_id': user.user_id,
+                'email': email,
+                'redirect_url': f'/auth/activation-sent?email={email}'
             }), 201
             
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': 'Registration failed. Please try again.'}), 500
+
+@auth.route('/activation-sent')
+def activation_sent():
+    """Show activation email sent message"""
+    email = request.args.get('email', '')
+    return render_template('auth/activation_sent.html', email=email)
 
 @auth.route('/activate/<token>')
 def activate_account(token):

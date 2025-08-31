@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Activation Email Sent - TokenGuard{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <div class="auth-header">
+        <h1>📧 Check Your Email</h1>
+        <p>We've sent you an activation link</p>
+    </div>
+    
+    <div class="activation-message">
+        <div class="icon-container">
+            <span class="email-icon">📬</span>
+        </div>
+        
+        <h2>Account Created Successfully!</h2>
+        <p>We've sent an activation link to <strong>{{ email }}</strong></p>
+        
+        <div class="activation-steps">
+            <h3>Next Steps:</h3>
+            <ol>
+                <li>Check your email inbox (and spam folder)</li>
+                <li>Click the activation link in the email</li>
+                <li>Your account will be activated immediately</li>
+                <li>You can then sign in to your account</li>
+            </ol>
+        </div>
+        
+        <div class="countdown">
+            <p>Redirecting to home page in <span id="countdown">10</span> seconds...</p>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="/" class="btn btn-primary">Go to Home Now</a>
+            <a href="/auth/login" class="btn btn-secondary">Sign In</a>
+        </div>
+    </div>
+    
+    <div class="auth-footer">
+        <p>Didn't receive the email? <a href="/auth/register">Try registering again</a></p>
+        <p><a href="/" class="home-link">← Back to Home</a></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Countdown timer and redirect
+let timeLeft = 10;
+const countdownElement = document.getElementById('countdown');
+
+const countdown = setInterval(() => {
+    timeLeft--;
+    countdownElement.textContent = timeLeft;
+    
+    if (timeLeft <= 0) {
+        clearInterval(countdown);
+        window.location.href = '/';
+    }
+}, 1000);
+</script>
+{% endblock %}
