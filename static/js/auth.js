@@ -346,11 +346,13 @@ class AuthManager {
                 
                 this.showMessage(response.data.message, 'success');
                 
-                // Redirect to user profile using JavaScript navigation
+                // Store the redirect URL and navigate programmatically
+                // Use a longer delay to ensure token is properly stored
                 setTimeout(() => {
-                    // Store the redirect URL and navigate programmatically
+                    console.log('About to navigate to protected route:', response.data.redirect_url);
+                    console.log('Token stored:', !!this.getAuthToken());
                     this.navigateToProtectedRoute(response.data.redirect_url);
-                }, 1000);
+                }, 2000);
             } else {
                 this.showMessage(response.error || 'Login failed', 'error');
             }
@@ -398,11 +400,16 @@ class AuthManager {
      */
     async makeAuthenticatedRequest(endpoint) {
         try {
+            console.log('makeAuthenticatedRequest called for endpoint:', endpoint);
             const token = this.getAuthToken();
+            console.log('Token found in makeAuthenticatedRequest:', !!token);
+            
             if (!token) {
+                console.log('No token found in makeAuthenticatedRequest');
                 return { success: false, error: 'No authentication token found' };
             }
 
+            console.log('Making fetch request with token...');
             const response = await fetch(endpoint, {
                 method: 'GET',
                 headers: {
@@ -412,11 +419,14 @@ class AuthManager {
                 }
             });
             
+            console.log('Response status:', response.status);
             const responseData = await response.json();
+            console.log('Response data:', responseData);
             
             if (response.ok) {
                 return { success: true, data: responseData };
             } else {
+                console.error('Request failed with status:', response.status, 'Error:', responseData.error);
                 return { success: false, error: responseData.error || 'Request failed' };
             }
         } catch (error) {
@@ -440,6 +450,7 @@ class AuthManager {
             localStorage.setItem('authTokenExpiration', expiration.toISOString());
             
             console.log('Auth token stored successfully');
+            console.log('Token value:', token.substring(0, 20) + '...');
         } catch (error) {
             console.error('Failed to store auth token:', error);
         }
@@ -454,14 +465,18 @@ class AuthManager {
             const token = localStorage.getItem('authToken');
             const expiration = localStorage.getItem('authTokenExpiration');
             
+            console.log('Getting auth token from localStorage:', !!token);
+            
             if (!token) return null;
             
             // Check if token is expired
             if (expiration && new Date() > new Date(expiration)) {
+                console.log('Token expired, clearing...');
                 this.clearAuthToken();
                 return null;
             }
             
+            console.log('Token retrieved successfully');
             return token;
         } catch (error) {
             console.error('Failed to get auth token:', error);
@@ -487,17 +502,57 @@ class AuthManager {
      * Automatically includes JWT token for protected routes
      */
     setupProtectedRouteHandling() {
+        console.log('Setting up protected route handling...');
+        
         // Check if we're on a protected route
         if (window.location.pathname.startsWith('/user/')) {
+            console.log('Currently on protected route, handling...');
             this.handleProtectedRoute();
         }
 
         // Listen for navigation to protected routes
-        window.addEventListener('popstate', () => {
+        window.addEventListener('popstate', (event) => {
+            console.log('Popstate event detected:', window.location.pathname);
             if (window.location.pathname.startsWith('/user/')) {
                 this.handleProtectedRoute();
             }
         });
+
+        // Intercept all clicks on links to protected routes
+        document.addEventListener('click', (e) => {
+            if (e.target.tagName === 'A' && e.target.href && e.target.href.includes('/user/')) {
+                console.log('Protected route link clicked, intercepting...');
+                e.preventDefault();
+                const url = e.target.href;
+                this.navigateToProtectedRoute(url);
+            }
+        });
+
+        // Intercept programmatic navigation to protected routes
+        const originalPushState = history.pushState;
+        history.pushState = function(state, title, url) {
+            console.log('PushState called with URL:', url);
+            if (url && url.toString().includes('/user/')) {
+                // This is a protected route, handle it properly
+                console.log('Protected route pushState detected, handling...');
+                setTimeout(() => {
+                    window.authManager.handleProtectedRoute();
+                }, 0);
+            }
+            return originalPushState.call(this, state, title, url);
+        };
+
+        // Handle direct URL access to protected routes
+        // This ensures that even if someone types the URL directly, it gets handled
+        if (window.location.pathname.startsWith('/user/')) {
+            console.log('Direct access to protected route detected, handling...');
+            // Small delay to ensure everything is loaded
+            setTimeout(() => {
+                this.handleProtectedRoute();
+            }, 100);
+        }
+        
+        console.log('Protected route handling setup complete');
     }
 
     /**
@@ -505,25 +560,76 @@ class AuthManager {
      * @param {string} url - The protected route URL
      */
     async navigateToProtectedRoute(url) {
+        console.log('navigateToProtectedRoute called with URL:', url);
         const token = this.getAuthToken();
+        console.log('Token found in navigateToProtectedRoute:', !!token);
+        
         if (!token) {
             // No token, redirect to login
+            console.log('No token found, redirecting to login');
             window.location.href = '/auth/login';
             return;
         }
 
-        // If we have a token, navigate directly to the protected route
-        // The backend will handle authentication validation
-        window.location.href = url;
+        // Extract the user_id from the URL
+        const match = url.match(/\/user\/([^\/]+)/);
+        if (!match) {
+            console.error('Invalid user profile URL:', url);
+            return;
+        }
+
+        const user_id = match[1];
+        console.log('Extracted user_id:', user_id);
+        
+        try {
+            // Make an authenticated request to get the profile data
+            console.log('Making authenticated request to:', `/user/${user_id}`);
+            const result = await this.makeAuthenticatedRequest(`/user/${user_id}`);
+            console.log('Request result:', result);
+            
+            if (result.success) {
+                // Check if the response is HTML or JSON
+                if (typeof result.data === 'string' && result.data.includes('<!DOCTYPE html>')) {
+                    // HTML response - replace the page content
+                    console.log('HTML response received, replacing page content');
+                    document.open();
+                    document.write(result.data);
+                    document.close();
+                } else if (result.data.user) {
+                    // JSON response - render the user profile
+                    console.log('JSON response received, rendering user profile');
+                    this.renderUserProfile(result.data.user);
+                } else {
+                    // Unexpected response format
+                    console.error('Unexpected response format:', result.data);
+                    window.location.href = '/auth/login';
+                }
+                
+                // Update browser URL without triggering navigation
+                history.pushState({}, '', url);
+                console.log('URL updated to:', url);
+            } else {
+                // Authentication failed, redirect to login
+                console.error('Authentication failed:', result.error);
+                window.location.href = '/auth/login';
+            }
+        } catch (error) {
+            console.error('Failed to access protected route:', error);
+            window.location.href = '/auth/login';
+        }
     }
 
     /**
      * Handle access to protected routes
      */
     async handleProtectedRoute() {
+        console.log('handleProtectedRoute called');
         const token = this.getAuthToken();
+        console.log('Token found:', !!token);
+        
         if (!token) {
             // Redirect to login if no token
+            console.log('No token found, redirecting to login');
             window.location.href = '/auth/login';
             return;
         }
@@ -605,5 +711,5 @@ class AuthManager {
 
 // Initialize authentication manager when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new AuthManager();
+    window.authManager = new AuthManager();
 });
