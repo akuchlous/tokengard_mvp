@@ -69,21 +69,45 @@ def create_app(test_config=None):
     
     @app.route('/user/<user_id>')
     def user_profile(user_id):
-        """User profile route"""
+        """User profile route - users can only access their own profile"""
         from models import User
-        from auth_utils import hash_password
+        from auth_utils import verify_jwt_token
+        from flask import request
         
-        # In a real app, you'd verify JWT token here
-        # For now, we'll just check if user exists
-        user = User.query.filter_by(user_id=user_id).first()
+        # Get JWT token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Authentication required'}), 401
         
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
+        token = auth_header.split(' ')[1]
         
-        if not user.is_active():
-            return jsonify({'error': 'Account not activated'}), 403
-        
-        return render_template('dashboard/dashboard.html', user=user)
+        try:
+            # Verify JWT token and get user info
+            payload = verify_jwt_token(token)
+            if not payload:
+                return jsonify({'error': 'Invalid or expired token'}), 401
+            
+            # Get the authenticated user
+            authenticated_user = User.query.filter_by(user_id=payload.get('user_id')).first()
+            if not authenticated_user:
+                return jsonify({'error': 'User not found'}), 404
+            
+            if not authenticated_user.is_active():
+                return jsonify({'error': 'Account not activated'}), 403
+            
+            # Check if user is trying to access their own profile
+            if authenticated_user.user_id != user_id:
+                return jsonify({'error': 'Access denied - you can only view your own profile'}), 403
+            
+            # Get the profile user (should be the same as authenticated user)
+            profile_user = User.query.filter_by(user_id=user_id).first()
+            if not profile_user:
+                return jsonify({'error': 'Profile not found'}), 404
+            
+            return render_template('dashboard/dashboard.html', user=profile_user)
+            
+        except Exception as e:
+            return jsonify({'error': 'Authentication failed'}), 401
     
     @app.route('/init-db')
     def init_database():

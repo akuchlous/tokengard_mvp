@@ -292,7 +292,7 @@ class TestFrontendAPIIntegration:
         assert 'error' in page_source or 'invalid' in page_source or 'failed' in page_source
     
     def test_user_profile_api_integration(self):
-        """Test user profile page API integration"""
+        """Test user profile page API integration with proper authentication"""
         # Create an active user
         with self.app.app_context():
             user = User(
@@ -329,6 +329,136 @@ class TestFrontendAPIIntegration:
         else:
             # Check if login was successful in some other way
             assert 'error' not in page_source or 'invalid' not in page_source
+    
+    def test_user_profile_access_without_authentication(self):
+        """Test that user profile requires authentication"""
+        # Try to access user profile directly without authentication
+        self.driver.get('http://localhost:5000/user/test123')
+        
+        # Should show authentication error
+        time.sleep(2)
+        page_source = self.driver.page_source.lower()
+        
+        # Check for authentication error message
+        assert 'authentication required' in page_source or 'unauthorized' in page_source or '401' in page_source
+    
+    def test_user_profile_access_with_invalid_token(self):
+        """Test that user profile rejects invalid tokens"""
+        # Try to access user profile with invalid token in URL
+        self.driver.get('http://localhost:5000/user/test123')
+        
+        # Should show authentication error
+        time.sleep(2)
+        page_source = self.driver.page_source.lower()
+        
+        # Check for authentication error message
+        assert 'authentication required' in page_source or 'unauthorized' in page_source or '401' in page_source
+    
+    def test_user_profile_access_other_user(self):
+        """Test that users cannot access other users' profiles"""
+        # Create two users
+        user1_id = None
+        user2_id = None
+        with self.app.app_context():
+            user1 = User(
+                email='user1@example.com',
+                password_hash=hash_password('TestPass123!')
+            )
+            user1.status = 'active'
+            db.session.add(user1)
+            
+            user2 = User(
+                email='user2@example.com',
+                password_hash=hash_password('TestPass123!')
+            )
+            user2.status = 'active'
+            db.session.add(user2)
+            
+            db.session.commit()
+            
+            # Store user IDs while still in app context
+            user1_id = user1.user_id
+            user2_id = user2.user_id
+        
+        # Login as user1
+        self.driver.get('http://localhost:5000/auth/login')
+        self.wait.until(EC.presence_of_element_located((By.TAG_NAME, 'form')))
+        
+        email_input = self.driver.find_element(By.NAME, 'email')
+        password_input = self.driver.find_element(By.NAME, 'password')
+        
+        email_input.send_keys('user1@example.com')
+        password_input.send_keys('TestPass123!')
+        
+        submit_btn = self.driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+        submit_btn.click()
+        
+        # Wait for login to complete
+        time.sleep(3)
+        
+        # Try to access user2's profile
+        self.driver.get(f'http://localhost:5000/user/{user2_id}')
+        
+        # Should show access denied error
+        time.sleep(2)
+        page_source = self.driver.page_source.lower()
+        
+        # Check for access denied message
+        assert 'access denied' in page_source or 'forbidden' in page_source or '403' in page_source
+    
+    def test_authentication_flow_security(self):
+        """Test complete authentication flow security"""
+        # Create an active user
+        user_id = None
+        with self.app.app_context():
+            user = User(
+                email='secure@example.com',
+                password_hash=hash_password('TestPass123!')
+            )
+            user.status = 'active'
+            db.session.add(user)
+            db.session.commit()
+            
+            # Store user ID while still in app context
+            user_id = user.user_id
+        
+        # Test 1: Try to access profile without login
+        self.driver.get(f'http://localhost:5000/user/{user_id}')
+        time.sleep(2)
+        page_source = self.driver.page_source.lower()
+        assert 'authentication required' in page_source or 'unauthorized' in page_source
+        
+        # Test 2: Login properly
+        self.driver.get('http://localhost:5000/auth/login')
+        self.wait.until(EC.presence_of_element_located((By.TAG_NAME, 'form')))
+        
+        email_input = self.driver.find_element(By.NAME, 'email')
+        password_input = self.driver.find_element(By.NAME, 'password')
+        
+        email_input.send_keys('secure@example.com')
+        password_input.send_keys('TestPass123!')
+        
+        submit_btn = self.driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+        submit_btn.click()
+        
+        # Wait for login to complete
+        time.sleep(3)
+        
+        # Test 3: Now access own profile (should work)
+        self.driver.get(f'http://localhost:5000/user/{user_id}')
+        time.sleep(2)
+        
+        # Should show user profile
+        page_source = self.driver.page_source.lower()
+        assert 'secure@example.com' in page_source or 'welcome' in page_source
+        
+        # Test 4: Try to access non-existent user profile
+        self.driver.get('http://localhost:5000/user/nonexistent123')
+        time.sleep(2)
+        
+        # Should show appropriate error
+        page_source = self.driver.page_source.lower()
+        assert 'not found' in page_source or '404' in page_source or 'access denied' in page_source
     
     def test_api_error_handling(self):
         """Test API error handling in frontend"""

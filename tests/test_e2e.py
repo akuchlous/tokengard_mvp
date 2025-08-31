@@ -41,7 +41,7 @@ class TestAuthenticationE2E:
             'TESTING': True,
             'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
             'SECRET_KEY': 'test-secret-key',
-            'JWT_SECRET_KEY': 'test-jwt-secret',
+            'JWT_SECRET_KEY': 'test-jwt-secret-key',
             'MAIL_SERVER': 'localhost',
             'MAIL_PORT': 587,
             'MAIL_USE_TLS': False,
@@ -417,9 +417,11 @@ class TestAuthenticationE2E:
         )
         
         assert login_response.status_code == 200
+        login_data = json.loads(login_response.data)
         
-                # Access user profile
-        response = self.client.get(f'/user/{self.test_user.user_id}')
+        # Access user profile (should work)
+        headers = {'Authorization': f'Bearer {login_data["token"]}'}
+        response = self.client.get(f'/user/{self.test_user.user_id}', headers=headers)
     
         assert response.status_code == 200
         assert b'Welcome' in response.data
@@ -427,12 +429,15 @@ class TestAuthenticationE2E:
         assert b'Logout' in response.data
     
     def test_user_profile_access_without_login(self):
-        """Test that user profile redirects without authentication"""
+        """Test that user profile requires authentication"""
         # Try to access user profile without login
         response = self.client.get(f'/user/{self.test_user.user_id}')
     
-        # Currently no auth check implemented
-        assert response.status_code == 200
+        # Should require authentication
+        assert response.status_code == 401
+        data = json.loads(response.data)
+        assert 'error' in data
+        assert 'authentication required' in data['error'].lower()
     
     def test_user_profile_access_inactive_user(self):
         """Test that user profile is not accessible for inactive users"""
@@ -453,11 +458,41 @@ class TestAuthenticationE2E:
         # Try to access user profile for inactive user
         response = self.client.get(f'/user/{inactive_user_id}')
         
-        # Should return 403 Forbidden for inactive users
-        assert response.status_code == 403
+        # Should return 401 for authentication required
+        assert response.status_code == 401
         data = json.loads(response.data)
         assert 'error' in data
-        assert 'not activated' in data['error'].lower()
+        assert 'authentication required' in data['error'].lower()
+    
+    def test_user_profile_access_other_user(self):
+        """Test that users cannot access other users' profiles"""
+        # Login as test user
+        login_data = {
+            'email': 'test@example.com',
+            'password': 'TestPass123!'
+        }
+        
+        login_response = self.client.post(
+            '/auth/login',
+            data=json.dumps(login_data),
+            content_type='application/json'
+        )
+        
+        assert login_response.status_code == 200
+        login_data = json.loads(login_response.data)
+        token = login_data['token']
+        
+        # Try to access a non-existent user's profile with valid token
+        headers = {'Authorization': f'Bearer {token}'}
+        response = self.client.get('/user/nonexistent123', headers=headers)
+        
+        # Should return 403 Forbidden - can't access other user's profile
+        # (or 404 if the user doesn't exist, but the auth check should happen first)
+        assert response.status_code in [403, 404]
+        if response.status_code == 403:
+            data = json.loads(response.data)
+            assert 'error' in data
+            assert 'access denied' in data['error'].lower()
     
     def test_logout_functionality(self):
         """Test that logout works correctly"""
@@ -714,7 +749,7 @@ class TestAuthenticationE2E:
         
         # Try to access user profile again (should fail)
         response = self.client.get(f'/user/{self.test_user.user_id}')
-        assert response.status_code == 200  # Currently no auth check implemented
+        assert response.status_code == 401  # Should require authentication
     
     def test_password_strength_validation(self):
         """Test password strength validation in detail"""
