@@ -99,7 +99,20 @@ def create_app(test_config=None):
             if authenticated_user.user_id != user_id:
                 return jsonify({'error': 'Access denied - you can only view their own profile'}), 403
             
-            # Return a simple user profile page
+            # Check if this is an AJAX request (for frontend JavaScript)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Return JSON response for AJAX requests
+                return jsonify({
+                    'success': True,
+                    'user': {
+                        'email': authenticated_user.email,
+                        'user_id': authenticated_user.user_id,
+                        'status': authenticated_user.status,
+                        'created_at': authenticated_user.created_at.strftime('%B %d, %Y')
+                    }
+                })
+            
+            # Return HTML response for direct browser navigation
             return f"""
             <!DOCTYPE html>
             <html>

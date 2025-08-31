@@ -346,9 +346,10 @@ class AuthManager {
                 
                 this.showMessage(response.data.message, 'success');
                 
-                // Redirect to dashboard
+                // Redirect to user profile using JavaScript navigation
                 setTimeout(() => {
-                    window.location.href = response.data.redirect_url;
+                    // Store the redirect URL and navigate programmatically
+                    this.navigateToProtectedRoute(response.data.redirect_url);
                 }, 1000);
             } else {
                 this.showMessage(response.error || 'Login failed', 'error');
@@ -386,6 +387,40 @@ class AuthManager {
             }
         } catch (error) {
             console.error('API request failed:', error);
+            return { success: false, error: 'Network error. Please check your connection.' };
+        }
+    }
+
+    /**
+     * Make authenticated GET request with JWT token
+     * @param {string} endpoint - API endpoint
+     * @returns {Object} - Response object with success/error information
+     */
+    async makeAuthenticatedRequest(endpoint) {
+        try {
+            const token = this.getAuthToken();
+            if (!token) {
+                return { success: false, error: 'No authentication token found' };
+            }
+
+            const response = await fetch(endpoint, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const responseData = await response.json();
+            
+            if (response.ok) {
+                return { success: true, data: responseData };
+            } else {
+                return { success: false, error: responseData.error || 'Request failed' };
+            }
+        } catch (error) {
+            console.error('Authenticated request failed:', error);
             return { success: false, error: 'Network error. Please check your connection.' };
         }
     }
@@ -445,6 +480,126 @@ class AuthManager {
         } catch (error) {
             console.error('Failed to clear auth token:', error);
         }
+    }
+
+    /**
+     * Set up protected route handling
+     * Automatically includes JWT token for protected routes
+     */
+    setupProtectedRouteHandling() {
+        // Check if we're on a protected route
+        if (window.location.pathname.startsWith('/user/')) {
+            this.handleProtectedRoute();
+        }
+
+        // Listen for navigation to protected routes
+        window.addEventListener('popstate', () => {
+            if (window.location.pathname.startsWith('/user/')) {
+                this.handleProtectedRoute();
+            }
+        });
+    }
+
+    /**
+     * Navigate to a protected route with proper authentication
+     * @param {string} url - The protected route URL
+     */
+    async navigateToProtectedRoute(url) {
+        const token = this.getAuthToken();
+        if (!token) {
+            // No token, redirect to login
+            window.location.href = '/auth/login';
+            return;
+        }
+
+        // If we have a token, navigate directly to the protected route
+        // The backend will handle authentication validation
+        window.location.href = url;
+    }
+
+    /**
+     * Handle access to protected routes
+     */
+    async handleProtectedRoute() {
+        const token = this.getAuthToken();
+        if (!token) {
+            // Redirect to login if no token
+            window.location.href = '/auth/login';
+            return;
+        }
+
+        // For protected routes, we need to make an authenticated request
+        // to get the page content instead of relying on browser navigation
+        const currentPath = window.location.pathname;
+        console.log('Protected route accessed with valid token:', currentPath);
+        
+        try {
+            const result = await this.makeAuthenticatedRequest(currentPath);
+            if (result.success) {
+                // Check if the response is HTML or JSON
+                if (typeof result.data === 'string' && result.data.includes('<!DOCTYPE html>')) {
+                    // HTML response - replace the page content
+                    document.open();
+                    document.write(result.data);
+                    document.close();
+                } else if (result.data.user) {
+                    // JSON response - render the user profile
+                    this.renderUserProfile(result.data.user);
+                } else {
+                    // Unexpected response format
+                    console.error('Unexpected response format:', result.data);
+                    window.location.href = '/auth/login';
+                }
+            } else {
+                // Authentication failed, redirect to login
+                console.error('Authentication failed:', result.error);
+                window.location.href = '/auth/login';
+            }
+        } catch (error) {
+            console.error('Failed to access protected route:', error);
+            window.location.href = '/auth/login';
+        }
+    }
+
+    /**
+     * Render user profile page from JSON data
+     * @param {Object} userData - User data from the API
+     */
+    renderUserProfile(userData) {
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>User Profile - ${userData.email}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 40px; }
+                    .profile { max-width: 600px; margin: 0 auto; }
+                    .header { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+                    .info { background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+                    .logout { background: #dc3545; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
+                </style>
+            </head>
+            <body>
+                <div class="profile">
+                    <div class="header">
+                        <h1>Welcome, ${userData.email}!</h1>
+                        <a href="/auth/logout" class="logout">Logout</a>
+                    </div>
+                    <div class="info">
+                        <h2>Your Profile</h2>
+                        <p><strong>User ID:</strong> ${userData.user_id}</p>
+                        <p><strong>Email:</strong> ${userData.email}</p>
+                        <p><strong>Status:</strong> ${userData.status}</p>
+                        <p><strong>Member since:</strong> ${userData.created_at}</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        document.open();
+        document.write(html);
+        document.close();
     }
 }
 
