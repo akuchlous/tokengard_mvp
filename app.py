@@ -1,9 +1,10 @@
 import os
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, url_for
 from flask_mail import Mail
 from dotenv import load_dotenv
 from models import db
 from auth import auth
+from datetime import datetime
 
 # Load environment variables based on FLASK_ENV
 env_file = os.getenv('FLASK_ENV', 'development')
@@ -57,7 +58,40 @@ def create_app(test_config=None):
     
     @app.route('/health')
     def health():
-        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+        """Health check endpoint"""
+        return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
+
+    @app.route('/api/get-activation-link/<email>')
+    def get_activation_link(email):
+        """Get activation link for a given email (for demo purposes)"""
+        try:
+            from models import User, ActivationToken
+            
+            # Find user by email
+            user = User.query.filter_by(email=email).first()
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+            
+            # Find the most recent valid activation token for this user
+            activation_token = ActivationToken.query.filter_by(
+                user_id=user.id,
+                used=False
+            ).order_by(ActivationToken.created_at.desc()).first()
+            
+            if not activation_token:
+                return jsonify({'error': 'No valid activation token found'}), 404
+            
+            # Construct the activation URL
+            activation_url = url_for('auth.activate_account', token=activation_token.token, _external=True)
+            
+            return jsonify({
+                'email': email,
+                'activation_url': activation_url,
+                'token': activation_token.token
+            })
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
     
     @app.route('/api/status')
     def api_status():

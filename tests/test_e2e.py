@@ -106,7 +106,7 @@ class TestAuthenticationE2E:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data['status'] == 'healthy'
-        assert 'database' in data
+        assert 'timestamp' in data
     
     def test_api_status_endpoint(self):
         """Test that the API status endpoint works correctly"""

@@ -1,4 +1,4 @@
-.PHONY: help install run test clean lint format check run-dev run-test run-prod deploy-aws
+.PHONY: help install run test clean lint format check run-dev run-test run-prod deploy-aws demo
 
 # Default target
 help:
@@ -17,6 +17,7 @@ help:
 	@echo "  test-security - Run security tests only (kills Flask processes first)"
 	@echo "  test-all   - Run all tests with coverage (kills Flask processes first)"
 	@echo "  test-env   - Set up test environment"
+	@echo "  demo       - Demo: opens home page and waits for 'q' to quit"
 	@echo "  clean      - Clean up cache files"
 	@echo "  lint       - Check code style with flake8"
 	@echo "  format     - Format code with black"
@@ -97,6 +98,26 @@ test-coverage: kill
 test-security: kill
 	@echo "Running security tests..."
 	pytest tests/test_auth_functions.py::TestSecurityFeatures -v
+
+# Demo user registration flow
+demo: kill
+	@echo "🚀 Starting Demo: User Registration Flow"
+	@echo "=========================================="
+	@echo "1. Killing existing Flask processes..."
+	@echo "2. Starting Flask server in background..."
+	@echo "3. Opening browser and running demo script..."
+	@echo ""
+	@echo "Starting Flask server..."
+	@cp config.env .env
+	@python app.py &
+	@echo "Waiting for server to start..."
+	@sleep 3
+	@echo "Server started! Running demo script..."
+	@python demo_registration.py
+	@echo ""
+	@echo "Demo completed! The Flask server is still running in the background."
+	@echo "To stop the server, run 'make kill' or find and kill the Python process."
+	@echo "You can continue using the application at http://localhost:5000"
 
 test-all: kill
 	@echo "Running all tests with coverage..."

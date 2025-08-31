@@ -644,6 +644,29 @@ body {
     font-style: italic;
 }
 
+/* Action buttons container */
+.home-page .action-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin: 30px 0;
+}
+
+.home-page .action-buttons .btn {
+    min-width: 120px;
+    padding: 15px 30px;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.home-page .action-buttons .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
 /* ===== ERROR PAGE STYLES ===== */
 .error-page .error-container {
     background: white;

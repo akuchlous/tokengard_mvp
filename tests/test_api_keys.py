@@ -362,6 +362,6 @@ class TestAPIKeySecurity:
         api_key.disable()
         
         # Query the key again to verify state persisted
-        db_key = APIKey.query.get(api_key.id)
+        db_key = db_session.get(APIKey, api_key.id)
         assert db_key.state == 'disabled'
         assert not db_key.is_enabled()

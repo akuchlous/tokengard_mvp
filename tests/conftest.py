@@ -10,12 +10,12 @@ This file contains:
 import pytest
 import subprocess
 import time
-import requests
 import signal
 import os
 from app import create_app, db
 from models import User, ActivationToken, PasswordResetToken, APIKey
 from auth_utils import hash_password
+import requests
 
 
 # Centralized test configuration
@@ -91,47 +91,83 @@ def flask_app_server():
         stderr=subprocess.PIPE
     )
     
-    # Wait for app to start
-    max_wait = 30  # 30 seconds max wait
-    for _ in range(max_wait):
+    # Wait for app to start and verify it's responding
+    max_attempts = 10
+    for attempt in range(max_attempts):
         try:
-            response = requests.get('http://localhost:5000/health', timeout=1)
+            time.sleep(1)  # Wait a bit
+            response = requests.get('http://localhost:5000/health', timeout=5)
             if response.status_code == 200:
+                print(f"✅ Flask server started successfully on attempt {attempt + 1}")
                 break
-        except (requests.RequestException, requests.Timeout):
-            time.sleep(1)
-    else:
-        # If app didn't start, kill process and raise error
-        process.terminate()
-        process.wait()
-        raise RuntimeError("Flask app failed to start within 30 seconds")
+        except Exception as e:
+            if attempt == max_attempts - 1:
+                print(f"❌ Failed to start Flask server after {max_attempts} attempts")
+                process.terminate()
+                process.wait(timeout=5)
+                raise RuntimeError(f"Flask server failed to start: {e}")
+            print(f"⏳ Waiting for Flask server to start... (attempt {attempt + 1}/{max_attempts})")
     
     yield process
     
     # Clean up: terminate the Flask app process
+    print("🧹 Cleaning up Flask server...")
     try:
         process.terminate()
         process.wait(timeout=10)
+        print("✅ Flask server terminated gracefully")
     except subprocess.TimeoutExpired:
+        print("⚠️  Flask server didn't terminate gracefully, forcing kill...")
         process.kill()
         process.wait()
+        print("✅ Flask server killed")
 
 
 @pytest.fixture(scope="session")
 def selenium_server(flask_app_server):
     """Start Flask server and wait for it to be ready for Selenium tests."""
-    # The flask_app_server fixture already starts the server
-    # Just wait a bit more to ensure it's fully ready
-    time.sleep(2)
-    
-    # Verify server is responding
+    # The flask_app_server fixture already starts the server and verifies it's ready
+    # Just do a final health check to ensure it's still responding
     try:
         response = requests.get('http://localhost:5000/health', timeout=5)
         assert response.status_code == 200
+        print("✅ Flask server confirmed ready for Selenium tests")
     except Exception as e:
-        raise RuntimeError(f"Flask server not ready: {e}")
+        raise RuntimeError(f"Flask server not ready for Selenium tests: {e}")
     
     yield flask_app_server
+
+
+@pytest.fixture
+def browser_driver(selenium_server):
+    """Provide a WebDriver instance for browser tests with automatic cleanup."""
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    
+    # Set up Chrome driver options
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-plugins")
+    
+    # Create driver
+    driver = webdriver.Chrome(options=chrome_options)
+    driver.implicitly_wait(5)  # Wait up to 5 seconds for elements
+    
+    print("🌐 WebDriver created for browser test")
+    
+    yield driver
+    
+    # Clean up
+    try:
+        driver.quit()
+        print("✅ WebDriver cleaned up")
+    except Exception as e:
+        print(f"⚠️  Warning: Error cleaning up WebDriver: {e}")
 
 
 @pytest.fixture

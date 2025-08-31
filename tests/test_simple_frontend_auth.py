@@ -4,43 +4,24 @@ Tests the core authentication functionality without complex setup
 """
 import time
 import pytest
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
 
 
 class TestSimpleFrontendAuth:
     """Simple frontend authentication tests"""
     
-    @pytest.fixture(autouse=True)
-    def setup_driver(self):
-        """Set up Chrome driver with headless mode"""
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--window-size=1920,1080")
-        
-        self.driver = webdriver.Chrome(options=chrome_options)
-        self.wait = WebDriverWait(self.driver, 10)
-        
-        yield
-        
-        self.driver.quit()
-    
-    def test_direct_profile_access_requires_auth(self):
+    def test_direct_profile_access_requires_auth(self, browser_driver):
         """Test that direct access to profile requires authentication"""
         print("🔒 Testing direct profile access without authentication...")
         
         # Try to access a user profile directly without authentication
-        self.driver.get('http://localhost:5000/user/test123')
+        browser_driver.get('http://localhost:5000/user/test123')
         time.sleep(3)
         
-        page_source = self.driver.page_source.lower()
-        current_url = self.driver.current_url
+        page_source = browser_driver.page_source.lower()
+        current_url = browser_driver.current_url
         
         print(f"   Current URL: {current_url}")
         print(f"   Page contains 'authentication': {'authentication' in page_source}")
@@ -56,15 +37,15 @@ class TestSimpleFrontendAuth:
         
         print("✅ Authentication required for direct profile access - PASSED")
     
-    def test_login_page_loads_correctly(self):
+    def test_login_page_loads_correctly(self, browser_driver):
         """Test that login page loads correctly"""
         print("🔐 Testing login page loads correctly...")
         
-        self.driver.get('http://localhost:5000/auth/login')
+        browser_driver.get('http://localhost:5000/auth/login')
         time.sleep(2)
         
-        page_source = self.driver.page_source.lower()
-        current_url = self.driver.current_url
+        page_source = browser_driver.page_source.lower()
+        current_url = browser_driver.current_url
         
         print(f"   Current URL: {current_url}")
         print(f"   Page contains login form: {'form' in page_source}")
@@ -79,15 +60,15 @@ class TestSimpleFrontendAuth:
         
         print("✅ Login page loads correctly - PASSED")
     
-    def test_register_page_loads_correctly(self):
+    def test_register_page_loads_correctly(self, browser_driver):
         """Test that register page loads correctly"""
         print("📝 Testing register page loads correctly...")
         
-        self.driver.get('http://localhost:5000/auth/register')
+        browser_driver.get('http://localhost:5000/auth/register')
         time.sleep(2)
         
-        page_source = self.driver.page_source.lower()
-        current_url = self.driver.current_url
+        page_source = browser_driver.page_source.lower()
+        current_url = browser_driver.current_url
         
         print(f"   Current URL: {current_url}")
         print(f"   Page contains register form: {'form' in page_source}")
@@ -104,15 +85,15 @@ class TestSimpleFrontendAuth:
         
         print("✅ Register page loads correctly - PASSED")
     
-    def test_home_page_loads_correctly(self):
+    def test_home_page_loads_correctly(self, browser_driver):
         """Test that home page loads correctly"""
         print("🏠 Testing home page loads correctly...")
         
-        self.driver.get('http://localhost:5000/')
+        browser_driver.get('http://localhost:5000/')
         time.sleep(2)
         
-        page_source = self.driver.page_source.lower()
-        current_url = self.driver.current_url
+        page_source = browser_driver.page_source.lower()
+        current_url = browser_driver.current_url
         
         print(f"   Current URL: {current_url}")
         print(f"   Page contains welcome content: {'welcome' in page_source or 'home' in page_source}")
@@ -123,32 +104,32 @@ class TestSimpleFrontendAuth:
         
         print("✅ Home page loads correctly - PASSED")
     
-    def test_navigation_between_pages(self):
+    def test_navigation_between_pages(self, browser_driver):
         """Test navigation between different pages"""
-        print("🧭 Testing navigation between pages...")
+        print("�� Testing navigation between pages...")
         
         # Start at home page
-        self.driver.get('http://localhost:5000/')
+        browser_driver.get('http://localhost:5000/')
         time.sleep(2)
-        home_url = self.driver.current_url
+        home_url = browser_driver.current_url
         print(f"   Started at: {home_url}")
         
         # Navigate to register page
-        self.driver.get('http://localhost:5000/auth/register')
+        browser_driver.get('http://localhost:5000/auth/register')
         time.sleep(2)
-        register_url = self.driver.current_url
+        register_url = browser_driver.current_url
         print(f"   Navigated to: {register_url}")
         
         # Navigate to login page
-        self.driver.get('http://localhost:5000/auth/login')
+        browser_driver.get('http://localhost:5000/auth/login')
         time.sleep(2)
-        login_url = self.driver.current_url
+        login_url = browser_driver.current_url
         print(f"   Navigated to: {login_url}")
         
         # Navigate back to home
-        self.driver.get('http://localhost:5000/')
+        browser_driver.get('http://localhost:5000/')
         time.sleep(2)
-        final_url = self.driver.current_url
+        final_url = browser_driver.current_url
         print(f"   Back to: {final_url}")
         
         # Verify all navigations worked
@@ -158,19 +139,19 @@ class TestSimpleFrontendAuth:
         
         print("✅ Navigation between pages works correctly - PASSED")
     
-    def test_form_elements_are_present(self):
+    def test_form_elements_are_present(self, browser_driver):
         """Test that form elements are present and functional"""
         print("📋 Testing form elements are present...")
         
         # Test register form
-        self.driver.get('http://localhost:5000/auth/register')
+        browser_driver.get('http://localhost:5000/auth/register')
         time.sleep(2)
         
         try:
-            email_input = self.driver.find_element(By.NAME, 'email')
-            password_input = self.driver.find_element(By.NAME, 'password')
-            confirm_password_input = self.driver.find_element(By.NAME, 'confirmPassword')
-            submit_btn = self.driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+            email_input = browser_driver.find_element(By.NAME, 'email')
+            password_input = browser_driver.find_element(By.NAME, 'password')
+            confirm_password_input = browser_driver.find_element(By.NAME, 'confirmPassword')
+            submit_btn = browser_driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
             
             print("   ✅ All register form elements found")
             
@@ -186,13 +167,13 @@ class TestSimpleFrontendAuth:
             assert False, f"Register form elements missing: {e}"
         
         # Test login form
-        self.driver.get('http://localhost:5000/auth/login')
+        browser_driver.get('http://localhost:5000/auth/login')
         time.sleep(2)
         
         try:
-            email_input = self.driver.find_element(By.NAME, 'email')
-            password_input = self.driver.find_element(By.NAME, 'password')
-            submit_btn = self.driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+            email_input = browser_driver.find_element(By.NAME, 'email')
+            password_input = browser_driver.find_element(By.NAME, 'password')
+            submit_btn = browser_driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
             
             print("   ✅ All login form elements found")
             
@@ -214,15 +195,16 @@ if __name__ == "__main__":
     test = TestSimpleFrontendAuth()
     
     # Manually set up the driver for direct execution
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920,1080")
+    # This section is no longer needed as browser_driver is now a fixture
+    # chrome_options = Options()
+    # chrome_options.add_argument("--headless")
+    # chrome_options.add_argument("--no-sandbox")
+    # chrome_options.add_argument("--disable-dev-shm-usage")
+    # chrome_options.add_argument("--disable-gpu")
+    # chrome_options.add_argument("--window-size=1920,1080")
     
-    test.driver = webdriver.Chrome(options=chrome_options)
-    test.wait = WebDriverWait(test.driver, 10)
+    # test.driver = webdriver.Chrome(options=chrome_options)
+    # test.wait = WebDriverWait(test.driver, 10)
     
     try:
         print("🧪 Testing Simple Frontend Authentication\n")
@@ -258,4 +240,6 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
     finally:
-        test.driver.quit()
+        # This section is no longer needed as browser_driver is now a fixture
+        # test.driver.quit()
+        pass
