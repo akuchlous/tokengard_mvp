@@ -67,6 +67,106 @@ def create_app(test_config=None):
             'environment': os.getenv('FLASK_ENV', 'development')
         })
     
+    def render_error_page(title, message, status_code):
+        """Render a user-friendly error page with automatic redirect"""
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>{title} - TokenGuard</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    padding: 0;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }}
+                .error-container {{
+                    background: white;
+                    padding: 40px;
+                    border-radius: 15px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                    text-align: center;
+                    max-width: 500px;
+                    width: 90%;
+                }}
+                .error-icon {{
+                    font-size: 64px;
+                    margin-bottom: 20px;
+                    color: #e74c3c;
+                }}
+                .error-title {{
+                    color: #2c3e50;
+                    font-size: 28px;
+                    margin-bottom: 15px;
+                    font-weight: bold;
+                }}
+                .error-message {{
+                    color: #7f8c8d;
+                    font-size: 16px;
+                    margin-bottom: 30px;
+                    line-height: 1.6;
+                }}
+                .home-button {{
+                    background: #3498db;
+                    color: white;
+                    padding: 12px 30px;
+                    text-decoration: none;
+                    border-radius: 25px;
+                    font-weight: bold;
+                    display: inline-block;
+                    margin-bottom: 20px;
+                    transition: background 0.3s ease;
+                }}
+                .home-button:hover {{
+                    background: #2980b9;
+                }}
+                .redirect-info {{
+                    color: #95a5a6;
+                    font-size: 14px;
+                    margin-top: 20px;
+                }}
+                .countdown {{
+                    color: #e74c3c;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="error-container">
+                <div class="error-icon">⚠️</div>
+                <div class="error-title">{title}</div>
+                <div class="error-message">{message}</div>
+                <a href="/" class="home-button">Go to Home Page</a>
+                <div class="redirect-info">
+                    You will be automatically redirected to the home page in 
+                    <span class="countdown" id="countdown">10</span> seconds.
+                </div>
+            </div>
+            
+            <script>
+                // Countdown timer
+                let timeLeft = 10;
+                const countdownElement = document.getElementById('countdown');
+                
+                const timer = setInterval(() => {{
+                    timeLeft--;
+                    countdownElement.textContent = timeLeft;
+                    
+                    if (timeLeft <= 0) {{
+                        clearInterval(timer);
+                        window.location.href = '/';
+                    }}
+                }}, 1000);
+            </script>
+        </body>
+        </html>
+        """, status_code
+
     @app.route('/user/<user_id>')
     def user_profile(user_id):
         """User profile route - users can only access their own profile"""
@@ -77,7 +177,8 @@ def create_app(test_config=None):
         # Get JWT token from Authorization header
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'error': 'Authentication required'}), 401
+            return render_error_page('Authentication Required', 
+                'You need to be logged in to access this page.', 401)
         
         token = auth_header.split(' ')[1]
         
@@ -85,19 +186,23 @@ def create_app(test_config=None):
             # Verify JWT token and get user info
             payload = verify_jwt_token(token)
             if not payload:
-                return jsonify({'error': 'Invalid or expired token'}), 401
+                return render_error_page('Invalid Token', 
+                    'Your login session has expired. Please log in again.', 401)
             
             # Get the authenticated user
             authenticated_user = User.query.filter_by(id=payload.get('user_id')).first()
             if not authenticated_user:
-                return jsonify({'error': 'User not found'}), 404
+                return render_error_page('User Not Found', 
+                    'The requested user profile could not be found.', 404)
             
             if not authenticated_user.is_active():
-                return jsonify({'error': 'Account not activated'}), 403
+                return render_error_page('Account Not Activated', 
+                    'This account has not been activated yet.', 403)
             
             # Check if user is trying to access their own profile
             if authenticated_user.user_id != user_id:
-                return jsonify({'error': 'Access denied - you can only view their own profile'}), 403
+                return render_error_page('Access Denied', 
+                    'You can only view your own profile page.', 403)
             
             # Check if this is an AJAX request (for frontend JavaScript)
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -145,7 +250,8 @@ def create_app(test_config=None):
             """
             
         except Exception as e:
-            return jsonify({'error': 'Authentication failed'}), 401
+            return render_error_page('Authentication Error', 
+                'An error occurred while processing your request. Please try again.', 500)
     
     @app.route('/init-db')
     def init_database():
@@ -161,12 +267,14 @@ def create_app(test_config=None):
     # Error handlers
     @app.errorhandler(404)
     def not_found(error):
-        return jsonify({'error': 'Not found'}), 404
+        return render_error_page('Page Not Found', 
+            'The page you are looking for does not exist.', 404)
     
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
-        return jsonify({'error': 'Internal server error'}), 500
+        return render_error_page('Internal Server Error', 
+            'Something went wrong on our end. Please try again later.', 500)
     
     return app
 
