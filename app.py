@@ -69,103 +69,7 @@ def create_app(test_config=None):
     
     def render_error_page(title, message, status_code):
         """Render a user-friendly error page with automatic redirect"""
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>{title} - TokenGuard</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    margin: 0;
-                    padding: 0;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }}
-                .error-container {{
-                    background: white;
-                    padding: 40px;
-                    border-radius: 15px;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-                    text-align: center;
-                    max-width: 500px;
-                    width: 90%;
-                }}
-                .error-icon {{
-                    font-size: 64px;
-                    margin-bottom: 20px;
-                    color: #e74c3c;
-                }}
-                .error-title {{
-                    color: #2c3e50;
-                    font-size: 28px;
-                    margin-bottom: 15px;
-                    font-weight: bold;
-                }}
-                .error-message {{
-                    color: #7f8c8d;
-                    font-size: 16px;
-                    margin-bottom: 30px;
-                    line-height: 1.6;
-                }}
-                .home-button {{
-                    background: #3498db;
-                    color: white;
-                    padding: 12px 30px;
-                    text-decoration: none;
-                    border-radius: 25px;
-                    font-weight: bold;
-                    display: inline-block;
-                    margin-bottom: 20px;
-                    transition: background 0.3s ease;
-                }}
-                .home-button:hover {{
-                    background: #2980b9;
-                }}
-                .redirect-info {{
-                    color: #95a5a6;
-                    font-size: 14px;
-                    margin-top: 20px;
-                }}
-                .countdown {{
-                    color: #e74c3c;
-                    font-weight: bold;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="error-container">
-                <div class="error-icon">⚠️</div>
-                <div class="error-title">{title}</div>
-                <div class="error-message">{message}</div>
-                <a href="/" class="home-button">Go to Home Page</a>
-                <div class="redirect-info">
-                    You will be automatically redirected to the home page in 
-                    <span class="countdown" id="countdown">10</span> seconds.
-                </div>
-            </div>
-            
-            <script>
-                // Countdown timer
-                let timeLeft = 10;
-                const countdownElement = document.getElementById('countdown');
-                
-                const timer = setInterval(() => {{
-                    timeLeft--;
-                    countdownElement.textContent = timeLeft;
-                    
-                    if (timeLeft <= 0) {{
-                        clearInterval(timer);
-                        window.location.href = '/';
-                    }}
-                }}, 1000);
-            </script>
-        </body>
-        </html>
-        """, status_code
+        return render_template('error.html', title=title, message=message), status_code
 
     @app.route('/user/<user_id>')
     def user_profile(user_id):
@@ -218,36 +122,12 @@ def create_app(test_config=None):
                 })
             
             # Return HTML response for direct browser navigation
-            return f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>User Profile - {authenticated_user.email}</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                    .profile {{ max-width: 600px; margin: 0 auto; }}
-                    .header {{ background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }}
-                    .info {{ background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }}
-                    .logout {{ background: #dc3545; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }}
-                </style>
-            </head>
-            <body>
-                <div class="profile">
-                    <div class="header">
-                        <h1>Welcome, {authenticated_user.email}!</h1>
-                        <a href="/auth/logout" class="logout">Logout</a>
-                    </div>
-                    <div class="info">
-                        <h2>Your Profile</h2>
-                        <p><strong>User ID:</strong> {authenticated_user.user_id}</p>
-                        <p><strong>Email:</strong> {authenticated_user.email}</p>
-                        <p><strong>Status:</strong> {authenticated_user.status}</p>
-                        <p><strong>Member since:</strong> {authenticated_user.created_at.strftime('%B %d, %Y')}</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            """
+            return render_template('user_profile.html', user={
+                'email': authenticated_user.email,
+                'user_id': authenticated_user.user_id,
+                'status': authenticated_user.status,
+                'created_at': authenticated_user.created_at.strftime('%B %d, %Y')
+            })
             
         except Exception as e:
             return render_error_page('Authentication Error', 

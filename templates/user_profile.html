@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Profile - {{ user.email }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/user_profile.css') }}">
+</head>
+<body>
+    <div class="profile">
+        <div class="header">
+            <h1>Welcome, {{ user.email }}!</h1>
+            <a href="{{ url_for('auth.logout') }}" class="logout">Logout</a>
+        </div>
+        <div class="info">
+            <h2>Your Profile</h2>
+            <p><strong>User ID:</strong> {{ user.user_id }}</p>
+            <p><strong>Email:</strong> {{ user.email }}</p>
+            <p><strong>Status:</strong> {{ user.status }}</p>
+            <p><strong>Member since:</strong> {{ user.created_at }}</p>
+        </div>
+    </div>
+</body>
+</html>

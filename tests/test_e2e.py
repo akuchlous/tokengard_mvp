@@ -435,9 +435,8 @@ class TestAuthenticationE2E:
     
         # Should require authentication
         assert response.status_code == 401
-        data = json.loads(response.data)
-        assert 'error' in data
-        assert 'authentication required' in data['error'].lower()
+        # Now returns HTML instead of JSON
+        assert b'Authentication Required' in response.data
     
     def test_user_profile_access_inactive_user(self):
         """Test that user profile is not accessible for inactive users"""
@@ -460,9 +459,8 @@ class TestAuthenticationE2E:
         
         # Should return 401 for authentication required
         assert response.status_code == 401
-        data = json.loads(response.data)
-        assert 'error' in data
-        assert 'authentication required' in data['error'].lower()
+        # Now returns HTML instead of JSON
+        assert b'Authentication Required' in response.data
     
     def test_user_profile_access_other_user(self):
         """Test that users cannot access other users' profiles"""
@@ -490,9 +488,8 @@ class TestAuthenticationE2E:
         # (or 404 if the user doesn't exist, but the auth check should happen first)
         assert response.status_code in [403, 404]
         if response.status_code == 403:
-            data = json.loads(response.data)
-            assert 'error' in data
-            assert 'access denied' in data['error'].lower()
+            # Now returns HTML instead of JSON
+            assert b'Access Denied' in response.data
     
     def test_logout_functionality(self):
         """Test that logout works correctly"""
@@ -651,9 +648,8 @@ class TestAuthenticationE2E:
         
         assert response.status_code == 404
         
-        data = json.loads(response.data)
-        assert 'error' in data
-        assert 'Not found' in data['error']
+        # Now returns HTML instead of JSON
+        assert b'Page Not Found' in response.data
     
     def test_error_handling_500(self):
         """Test that 500 errors are handled correctly"""
