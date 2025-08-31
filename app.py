@@ -88,7 +88,7 @@ def create_app(test_config=None):
                 return jsonify({'error': 'Invalid or expired token'}), 401
             
             # Get the authenticated user
-            authenticated_user = User.query.filter_by(user_id=payload.get('user_id')).first()
+            authenticated_user = User.query.filter_by(id=payload.get('user_id')).first()
             if not authenticated_user:
                 return jsonify({'error': 'User not found'}), 404
             
@@ -97,14 +97,39 @@ def create_app(test_config=None):
             
             # Check if user is trying to access their own profile
             if authenticated_user.user_id != user_id:
-                return jsonify({'error': 'Access denied - you can only view your own profile'}), 403
+                return jsonify({'error': 'Access denied - you can only view their own profile'}), 403
             
-            # Get the profile user (should be the same as authenticated user)
-            profile_user = User.query.filter_by(user_id=user_id).first()
-            if not profile_user:
-                return jsonify({'error': 'Profile not found'}), 404
-            
-            return render_template('dashboard/dashboard.html', user=profile_user)
+            # Return a simple user profile page
+            return f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>User Profile - {authenticated_user.email}</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 40px; }}
+                    .profile {{ max-width: 600px; margin: 0 auto; }}
+                    .header {{ background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }}
+                    .info {{ background: white; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }}
+                    .logout {{ background: #dc3545; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }}
+                </style>
+            </head>
+            <body>
+                <div class="profile">
+                    <div class="header">
+                        <h1>Welcome, {authenticated_user.email}!</h1>
+                        <a href="/auth/logout" class="logout">Logout</a>
+                    </div>
+                    <div class="info">
+                        <h2>Your Profile</h2>
+                        <p><strong>User ID:</strong> {authenticated_user.user_id}</p>
+                        <p><strong>Email:</strong> {authenticated_user.email}</p>
+                        <p><strong>Status:</strong> {authenticated_user.status}</p>
+                        <p><strong>Member since:</strong> {authenticated_user.created_at.strftime('%B %d, %Y')}</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
             
         except Exception as e:
             return jsonify({'error': 'Authentication failed'}), 401

@@ -734,14 +734,18 @@ class TestAuthenticationE2E:
             'password': 'TestPass123!'
         }
         
-        self.client.post(
+        login_response = self.client.post(
             '/auth/login',
             data=json.dumps(login_data),
             content_type='application/json'
         )
         
+        assert login_response.status_code == 200
+        login_data = json.loads(login_response.data)
+        
         # Access user profile (should work)
-        response = self.client.get(f'/user/{self.test_user.user_id}')
+        headers = {'Authorization': f'Bearer {login_data["token"]}'}
+        response = self.client.get(f'/user/{self.test_user.user_id}', headers=headers)
         assert response.status_code == 200
         
         # Logout
