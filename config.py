@@ -24,7 +24,7 @@ class Config:
 class DevelopmentConfig(Config):
     """Development configuration"""
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///database/auth.db')
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///:memory:')
     
     # Email configuration for development
     MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
@@ -34,6 +34,10 @@ class DevelopmentConfig(Config):
     MAIL_USERNAME = os.getenv('MAIL_USERNAME')
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER')
+    
+    # Development HTTPS (optional)
+    SSL_CONTEXT = os.getenv('SSL_CONTEXT', None)  # Path to SSL certificate files
+    HTTPS_ENABLED = os.getenv('HTTPS_ENABLED', 'False').lower() == 'true'
 
 class ProductionConfig(Config):
     """Production configuration for AWS"""

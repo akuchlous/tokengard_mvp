@@ -178,7 +178,7 @@ def forgot_password():
     # Find user
     user = User.query.filter_by(email=email).first()
     
-    if user:
+    if user and user.is_active():
         # Create password reset token
         reset_token = PasswordResetToken(user.id)
         db.session.add(reset_token)
@@ -186,7 +186,7 @@ def forgot_password():
         
         # Send password reset email
         if send_password_reset_email(user, reset_token):
-            return jsonify({'message': 'Password reset email sent. Please check your inbox.'}), 200
+            return jsonify({'message': 'If active user, the email will be send for passwd reset'}), 200
         else:
             return jsonify({'error': 'Failed to send password reset email. Please try again.'}), 500
     

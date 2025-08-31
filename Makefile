@@ -6,6 +6,7 @@ help:
 	@echo "  install    - Install dependencies"
 	@echo "  run        - Run the Flask app locally (development)"
 	@echo "  run-dev    - Run in development mode"
+	@echo "  run-dev-https - Run in development mode with HTTPS (optional)"
 	@echo "  run-test   - Run in test mode"
 	@echo "  run-prod   - Run in production mode"
 	@echo "  kill       - Kill all Flask processes"
@@ -34,6 +35,22 @@ run-dev:
 	@echo "Using config.env for development configuration"
 	@echo "Visit http://localhost:5000 in your browser"
 	cp config.env .env && python app.py
+
+# Run in development mode with HTTPS
+run-dev-https:
+	@echo "Starting Flask app in DEVELOPMENT mode with HTTPS..."
+	@echo "Killing any existing Flask processes..."
+	@pkill -f "python app.py" || true
+	@sleep 2
+	@echo "Setting up HTTPS environment..."
+	@if [ ! -f "ssl/cert.pem" ] || [ ! -f "ssl/key.pem" ]; then \
+		echo "SSL certificates not found. Run './setup_dev_https.sh' first."; \
+		exit 1; \
+	fi
+	@echo "Using config.dev.https.env for HTTPS development configuration"
+	@echo "Visit https://localhost:5000 in your browser"
+	@echo "⚠️  Accept the self-signed certificate warning in your browser"
+	cp config.dev.https.env .env && python app.py
 
 # Run in test mode
 run-test:
