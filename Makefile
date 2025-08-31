@@ -1,31 +1,72 @@
-.PHONY: help install run test clean lint format check
+.PHONY: help install run test clean lint format check run-dev run-test run-prod deploy-aws
 
 # Default target
 help:
 	@echo "Available commands:"
 	@echo "  install    - Install dependencies"
-	@echo "  run        - Run the Flask app locally"
+	@echo "  run        - Run the Flask app locally (development)"
+	@echo "  run-dev    - Run in development mode"
+	@echo "  run-test   - Run in test mode"
+	@echo "  run-prod   - Run in production mode"
+	@echo "  kill       - Kill all Flask processes"
 	@echo "  test       - Run tests"
+	@echo "  test-env   - Set up test environment"
 	@echo "  clean      - Clean up cache files"
 	@echo "  lint       - Check code style with flake8"
 	@echo "  format     - Format code with black"
 	@echo "  check      - Run all checks (lint + test)"
+	@echo "  deploy-aws - Deploy to AWS (S3 + CloudFront)"
 
 # Install dependencies
 install:
 	@echo "Installing dependencies..."
 	pip install -r requirements.txt
 
-# Run the Flask app locally
-run:
-	@echo "Starting Flask app..."
+# Run the Flask app locally (development mode)
+run: run-dev
+
+# Run in development mode
+run-dev:
+	@echo "Starting Flask app in DEVELOPMENT mode..."
+	@echo "Killing any existing Flask processes..."
+	@pkill -f "python app.py" || true
+	@sleep 2
+	@echo "Using config.env for development configuration"
 	@echo "Visit http://localhost:5000 in your browser"
-	python app.py
+	cp config.env .env && python app.py
+
+# Run in test mode
+run-test:
+	@echo "Starting Flask app in TEST mode..."
+	@echo "Killing any existing Flask processes..."
+	@pkill -f "python app.py" || true
+	@sleep 2
+	@echo "Using config.test.env for test configuration"
+	@echo "Visit http://localhost:5000 in your browser"
+	cp config.test.env .env && python app.py
+
+# Run in production mode
+run-prod:
+	@echo "Starting Flask app in PRODUCTION mode..."
+	@echo "Killing any existing Flask processes..."
+	@pkill -f "python app.py" || true
+	@sleep 2
+	@echo "Using config.prod.env for production configuration"
+	@echo "Visit http://localhost:5000 in your browser"
+	cp config.prod.env .env && python app.py
 
 # Run tests
 test:
 	@echo "Running tests..."
+	@echo "Setting up test environment..."
+	cp config.test.env .env
 	pytest tests/ -v
+
+# Set up test environment
+test-env:
+	@echo "Setting up test environment..."
+	cp config.test.env .env
+	@echo "Test environment configured. Run 'make test' to run tests."
 
 test-unit:
 	@echo "Running unit tests..."
@@ -46,6 +87,12 @@ test-security:
 test-all:
 	@echo "Running all tests with coverage..."
 	pytest tests/ -v --cov=. --cov-report=html --cov-report=term-missing
+
+# Kill Flask processes
+kill:
+	@echo "Killing all Flask processes..."
+	@pkill -f "python app.py" || true
+	@echo "Flask processes killed"
 
 # Clean up cache files
 clean:
@@ -87,3 +134,37 @@ prod-run:
 	@echo "Starting Flask app with gunicorn..."
 	@echo "Visit http://localhost:8000 in your browser"
 	gunicorn -w 4 -b 0.0.0.0:8000 app:app
+
+# AWS Deployment
+deploy-aws:
+	@echo "Deploying to AWS..."
+	@echo "This will deploy the Flask app to AWS S3 + CloudFront"
+	@echo "Make sure you have AWS CLI configured and proper permissions"
+	@echo ""
+	@echo "Step 1: Building static files..."
+	@echo "Step 2: Uploading to S3..."
+	@echo "Step 3: Invalidating CloudFront cache..."
+	@echo ""
+	@echo "For now, this is a placeholder. Run the deploy script manually:"
+	@echo "  ./deploy.sh"
+	@echo ""
+	@echo "Or set up your AWS deployment pipeline as needed."
+
+# AWS S3 deployment only
+deploy-s3:
+	@echo "Deploying to AWS S3..."
+	@if [ -f "./deploy.sh" ]; then \
+		./deploy.sh; \
+	else \
+		echo "deploy.sh not found. Please set up your deployment script first."; \
+	fi
+
+# Check AWS configuration
+check-aws:
+	@echo "Checking AWS configuration..."
+	@if command -v aws >/dev/null 2>&1; then \
+		echo "AWS CLI is installed"; \
+		aws sts get-caller-identity; \
+	else \
+		echo "AWS CLI not installed. Install with: pip install awscli"; \
+	fi

@@ -146,7 +146,7 @@ def login():
         'message': 'Login successful',
         'token': token,
         'user_id': user.user_id,
-        'redirect_url': f'/user/{user.user_id}'
+        'redirect_url': f'/dashboard/{user.user_id}'
     }), 200
 
 @auth.route('/logout')

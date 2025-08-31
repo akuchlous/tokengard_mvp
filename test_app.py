@@ -11,8 +11,8 @@ def test_home_page(client):
     """Test that the home page loads successfully"""
     response = client.get('/')
     assert response.status_code == 200
-    assert b'Welcome to My Flask App' in response.data
-    assert b'Flask' in response.data
+    assert b'TokenGuard' in response.data
+    assert b'Secure authentication system' in response.data
 
 def test_health_endpoint(client):
     """Test the health check endpoint"""
@@ -24,10 +24,10 @@ def test_home_page_content(client):
     """Test that the home page contains expected content"""
     response = client.get('/')
     # Check for key elements
-    assert b'Simple' in response.data
-    assert b'Fast' in response.data
-    assert b'Responsive' in response.data
-    assert b'Ready to get started' in response.data
+    assert b'TokenGuard' in response.data
+    assert b'Sign In' in response.data
+    assert b'Sign Up' in response.data
+    assert b'hero-section' in response.data
 
 def test_404_error(client):
     """Test that non-existent routes return 404"""
@@ -41,5 +41,5 @@ def test_home_page_structure(client):
     assert b'<!DOCTYPE html>' in response.data
     assert b'<html' in response.data
     assert b'<head>' in response.data
-    assert b'<body>' in response.data
+    assert b'<body' in response.data  # Changed from <body> to <body to handle class attribute
     assert b'</html>' in response.data

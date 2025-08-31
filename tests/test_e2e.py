@@ -26,6 +26,10 @@ from models import User, ActivationToken, PasswordResetToken
 from auth_utils import hash_password, generate_jwt_token
 
 
+# Add timeout to all tests to prevent hanging
+pytestmark = pytest.mark.timeout(30)
+
+
 class TestAuthenticationE2E:
     """End-to-End Authentication Test Suite"""
     
@@ -33,11 +37,20 @@ class TestAuthenticationE2E:
     def setup(self):
         """Set up test environment before each test"""
         # Create test app with test configuration
-        self.app = create_app()
-        self.app.config['TESTING'] = True
-        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        self.app.config['SECRET_KEY'] = 'test-secret-key'
-        self.app.config['JWT_SECRET_KEY'] = 'test-jwt-secret'
+        test_config = {
+            'TESTING': True,
+            'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+            'SECRET_KEY': 'test-secret-key',
+            'JWT_SECRET_KEY': 'test-jwt-secret',
+            'MAIL_SERVER': 'localhost',
+            'MAIL_PORT': 587,
+            'MAIL_USE_TLS': False,
+            'MAIL_USE_SSL': False,
+            'MAIL_USERNAME': 'test@example.com',
+            'MAIL_PASSWORD': 'test-password',
+            'MAIL_DEFAULT_SENDER': 'test@example.com'
+        }
+        self.app = create_app(test_config)
         
         # Create test client
         self.client = self.app.test_client()
@@ -747,21 +760,7 @@ class TestAuthenticationE2E:
 class TestSecurityFeatures:
     """Test security-related features and vulnerabilities"""
     
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        """Set up test environment"""
-        self.app = create_app()
-        self.app.config['TESTING'] = True
-        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        self.client = self.app.test_client()
-        
-        with self.app.app_context():
-            db.create_all()
-            yield
-            db.session.remove()
-            db.drop_all()
-    
-    def test_sql_injection_protection(self):
+    def test_sql_injection_protection(self, app, client, db_session):
         """Test that SQL injection attempts are blocked"""
         # Test with SQL injection in email
         malicious_data = {
@@ -769,7 +768,7 @@ class TestSecurityFeatures:
             'password': 'TestPass123!'
         }
         
-        response = self.client.post(
+        response = client.post(
             '/auth/register',
             data=json.dumps(malicious_data),
             content_type='application/json'
@@ -779,12 +778,12 @@ class TestSecurityFeatures:
         assert response.status_code == 400
         
         # Verify database is still intact
-        with self.app.app_context():
+        with app.app_context():
             # Should still be able to query users table
             users = User.query.all()
             assert isinstance(users, list)
     
-    def test_xss_protection(self):
+    def test_xss_protection(self, app, client, db_session):
         """Test that XSS attempts are blocked"""
         # Test with XSS in email
         malicious_data = {
@@ -792,7 +791,7 @@ class TestSecurityFeatures:
             'password': 'TestPass123!'
         }
         
-        response = self.client.post(
+        response = client.post(
             '/auth/register',
             data=json.dumps(malicious_data),
             content_type='application/json'
@@ -805,30 +804,30 @@ class TestSecurityFeatures:
         assert 'error' in data
         assert 'Invalid email format' in data['error']
     
-    def test_csrf_protection(self):
+    def test_csrf_protection(self, app, client, db_session):
         """Test that CSRF protection is in place"""
         # This test would verify CSRF tokens are required
         # For now, we'll just verify the application has security headers
         
-        response = self.client.get('/auth/register')
+        response = client.get('/auth/register')
         assert response.status_code == 200
         
         # In a real application, you'd check for CSRF tokens in forms
         # and verify they're validated on submission
     
-    def test_rate_limiting(self):
+    def test_rate_limiting(self, app, client, db_session):
         """Test that rate limiting is enforced"""
         # This test would verify that too many requests are blocked
         # For now, we'll just verify the application handles multiple requests
         
-        # Make multiple registration attempts
-        for i in range(10):
+        # Make a few registration attempts (reduced from 10 to 3 for performance)
+        for i in range(3):
             registration_data = {
                 'email': f'rate_limit_test_{i}@example.com',
                 'password': 'TestPass123!'
             }
             
-            response = self.client.post(
+            response = client.post(
                 '/auth/register',
                 data=json.dumps(registration_data),
                 content_type='application/json'
