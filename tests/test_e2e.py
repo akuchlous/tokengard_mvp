@@ -8,7 +8,7 @@ Tests cover:
 - User registration workflow
 - Email activation process
 - User login functionality
-- Dashboard access and functionality
+- User profile access and functionality
 - Password reset workflow
 - Error handling and edge cases
 
@@ -402,8 +402,8 @@ class TestAuthenticationE2E:
         assert 'error' in data
         assert 'Invalid email or password' in data['error']
     
-    def test_dashboard_access_with_valid_user(self):
-        """Test that dashboard is accessible for valid users"""
+    def test_user_profile_access_with_valid_user(self):
+        """Test that user profile is accessible for valid users"""
         # Login first to get session
         login_data = {
             'email': 'test@example.com',

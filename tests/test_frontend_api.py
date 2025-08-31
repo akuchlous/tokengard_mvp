@@ -259,7 +259,7 @@ class TestFrontendAPIIntegration:
         current_url = self.driver.current_url
         page_source = self.driver.page_source.lower()
         
-        # Should either redirect to dashboard or show success message
+        # Should either redirect to user profile or show success message
         if '/user' in current_url or 'welcome' in page_source or 'successful' in page_source:
             assert True
         else:
@@ -296,7 +296,7 @@ class TestFrontendAPIIntegration:
         # Create an active user
         with self.app.app_context():
             user = User(
-                email='dashboard@example.com',
+                email='profile@example.com',
                 password_hash=hash_password('TestPass123!')
             )
             user.status = 'active'
@@ -310,7 +310,7 @@ class TestFrontendAPIIntegration:
         email_input = self.driver.find_element(By.NAME, 'email')
         password_input = self.driver.find_element(By.NAME, 'password')
         
-        email_input.send_keys('dashboard@example.com')
+        email_input.send_keys('profile@example.com')
         password_input.send_keys('TestPass123!')
         
         submit_btn = self.driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
@@ -319,13 +319,13 @@ class TestFrontendAPIIntegration:
         # Wait for redirect
         time.sleep(3)
         
-        # Check if we're on dashboard
+        # Check if we're on user profile
         current_url = self.driver.current_url
         page_source = self.driver.page_source.lower()
         
         if '/user' in current_url or 'welcome' in page_source:
             # User profile loaded successfully
-            assert 'welcome' in page_source or 'dashboard@example.com' in page_source
+            assert 'welcome' in page_source or 'profile@example.com' in page_source
         else:
             # Check if login was successful in some other way
             assert 'error' not in page_source or 'invalid' not in page_source

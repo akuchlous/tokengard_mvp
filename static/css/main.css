@@ -542,32 +542,7 @@ a:hover {
     margin-bottom: var(--spacing-sm);
 }
 
-/* ==========================================================================
-   Dashboard Styles - User dashboard layout
-   ========================================================================== */
-.dashboard-page {
-    min-height: 100vh;
-    background: var(--background-secondary);
-}
 
-.dashboard-header {
-    background: var(--background-primary);
-    padding: var(--spacing-lg);
-    box-shadow: var(--shadow-sm);
-    margin-bottom: var(--spacing-xl);
-}
-
-.dashboard-content {
-    padding: var(--spacing-xl);
-}
-
-.dashboard-card {
-    background: var(--background-primary);
-    border-radius: var(--border-radius-lg);
-    padding: var(--spacing-xl);
-    margin-bottom: var(--spacing-lg);
-    box-shadow: var(--shadow-sm);
-}
 
 /* ==========================================================================
    Utility Classes - Helper classes for common patterns
