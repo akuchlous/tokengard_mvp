@@ -146,7 +146,7 @@ def login():
         'message': 'Login successful',
         'token': token,
         'user_id': user.user_id,
-        'redirect_url': f'/dashboard/{user.user_id}'
+        'redirect_url': f'/user/{user.user_id}'
     }), 200
 
 @auth.route('/logout')
@@ -233,19 +233,4 @@ def reset_password(token):
         db.session.rollback()
         return jsonify({'error': 'Password reset failed. Please try again.'}), 500
 
-@auth.route('/dashboard/<user_id>')
-def dashboard(user_id):
-    """User dashboard (protected route)"""
-    # In a real app, you'd verify JWT token here
-    # For now, we'll just check if user exists
-    user = User.query.filter_by(user_id=user_id).first()
-    
-    if not user:
-        flash('User not found.', 'error')
-        return redirect(url_for('auth.login'))
-    
-    if not user.is_active():
-        flash('Account not activated.', 'error')
-        return redirect(url_for('auth.login'))
-    
-    return render_template('dashboard/dashboard.html', user=user)
+

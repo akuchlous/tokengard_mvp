@@ -67,6 +67,24 @@ def create_app(test_config=None):
             'environment': os.getenv('FLASK_ENV', 'development')
         })
     
+    @app.route('/user/<user_id>')
+    def user_profile(user_id):
+        """User profile route"""
+        from models import User
+        from auth_utils import hash_password
+        
+        # In a real app, you'd verify JWT token here
+        # For now, we'll just check if user exists
+        user = User.query.filter_by(user_id=user_id).first()
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        if not user.is_active():
+            return jsonify({'error': 'Account not activated'}), 403
+        
+        return render_template('dashboard/dashboard.html', user=user)
+    
     @app.route('/init-db')
     def init_database():
         """Initialize database tables"""

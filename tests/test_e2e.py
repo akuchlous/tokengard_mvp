@@ -418,24 +418,24 @@ class TestAuthenticationE2E:
         
         assert login_response.status_code == 200
         
-                # Access dashboard
-        response = self.client.get(f'/auth/dashboard/{self.test_user.user_id}')
+                # Access user profile
+        response = self.client.get(f'/user/{self.test_user.user_id}')
     
         assert response.status_code == 200
         assert b'Welcome' in response.data
         assert b'test@example.com' in response.data
         assert b'Logout' in response.data
     
-    def test_dashboard_access_without_login(self):
-        """Test that dashboard redirects without authentication"""
-        # Try to access dashboard without login
-        response = self.client.get(f'/auth/dashboard/{self.test_user.user_id}')
+    def test_user_profile_access_without_login(self):
+        """Test that user profile redirects without authentication"""
+        # Try to access user profile without login
+        response = self.client.get(f'/user/{self.test_user.user_id}')
     
         # Currently no auth check implemented
         assert response.status_code == 200
     
-    def test_dashboard_access_inactive_user(self):
-        """Test that dashboard is not accessible for inactive users"""
+    def test_user_profile_access_inactive_user(self):
+        """Test that user profile is not accessible for inactive users"""
                 # Create inactive user
         inactive_user_id = None
         with self.app.app_context():
@@ -450,12 +450,14 @@ class TestAuthenticationE2E:
             # Get user_id while still in app context
             inactive_user_id = inactive_user.user_id
         
-        # Try to access dashboard for inactive user
-        response = self.client.get(f'/auth/dashboard/{inactive_user_id}')
+        # Try to access user profile for inactive user
+        response = self.client.get(f'/user/{inactive_user_id}')
         
-        # Should redirect to login
-        assert response.status_code == 302
-        assert 'login' in response.location
+        # Should return 403 Forbidden for inactive users
+        assert response.status_code == 403
+        data = json.loads(response.data)
+        assert 'error' in data
+        assert 'not activated' in data['error'].lower()
     
     def test_logout_functionality(self):
         """Test that logout works correctly"""
@@ -703,15 +705,15 @@ class TestAuthenticationE2E:
             content_type='application/json'
         )
         
-        # Access dashboard (should work)
-        response = self.client.get(f'/auth/dashboard/{self.test_user.user_id}')
+        # Access user profile (should work)
+        response = self.client.get(f'/user/{self.test_user.user_id}')
         assert response.status_code == 200
         
         # Logout
         self.client.get('/auth/logout')
         
-        # Try to access dashboard again (should fail)
-        response = self.client.get(f'/auth/dashboard/{self.test_user.user_id}')
+        # Try to access user profile again (should fail)
+        response = self.client.get(f'/user/{self.test_user.user_id}')
         assert response.status_code == 200  # Currently no auth check implemented
     
     def test_password_strength_validation(self):

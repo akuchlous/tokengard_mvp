@@ -260,7 +260,7 @@ class TestFrontendAPIIntegration:
         page_source = self.driver.page_source.lower()
         
         # Should either redirect to dashboard or show success message
-        if '/dashboard' in current_url or 'welcome' in page_source or 'successful' in page_source:
+        if '/user' in current_url or 'welcome' in page_source or 'successful' in page_source:
             assert True
         else:
             # Check if there's any success indication
@@ -291,8 +291,8 @@ class TestFrontendAPIIntegration:
         page_source = self.driver.page_source.lower()
         assert 'error' in page_source or 'invalid' in page_source or 'failed' in page_source
     
-    def test_dashboard_api_integration(self):
-        """Test dashboard page API integration"""
+    def test_user_profile_api_integration(self):
+        """Test user profile page API integration"""
         # Create an active user
         with self.app.app_context():
             user = User(
@@ -323,8 +323,8 @@ class TestFrontendAPIIntegration:
         current_url = self.driver.current_url
         page_source = self.driver.page_source.lower()
         
-        if '/dashboard' in current_url or 'welcome' in page_source:
-            # Dashboard loaded successfully
+        if '/user' in current_url or 'welcome' in page_source:
+            # User profile loaded successfully
             assert 'welcome' in page_source or 'dashboard@example.com' in page_source
         else:
             # Check if login was successful in some other way
