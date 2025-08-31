@@ -9,8 +9,13 @@ help:
 	@echo "  run-dev-https - Run in development mode with HTTPS (optional)"
 	@echo "  run-test   - Run in test mode"
 	@echo "  run-prod   - Run in production mode"
-	@echo "  kill       - Kill all Flask processes"
-	@echo "  test       - Run tests"
+	@echo "  kill       - Kill all Flask processes (used by other targets)"
+	@echo "  test       - Run tests (kills Flask processes first)"
+	@echo "  test-unit  - Run unit tests only (kills Flask processes first)"
+	@echo "  test-e2e   - Run end-to-end tests only (kills Flask processes first)"
+	@echo "  test-coverage - Run tests with coverage (kills Flask processes first)"
+	@echo "  test-security - Run security tests only (kills Flask processes first)"
+	@echo "  test-all   - Run all tests with coverage (kills Flask processes first)"
 	@echo "  test-env   - Set up test environment"
 	@echo "  clean      - Clean up cache files"
 	@echo "  lint       - Check code style with flake8"
@@ -27,21 +32,17 @@ install:
 run: run-dev
 
 # Run in development mode
-run-dev:
+run-dev: kill
 	@echo "Starting Flask app in DEVELOPMENT mode..."
-	@echo "Killing any existing Flask processes..."
-	@pkill -f "python app.py" || true
-	@sleep 2
+	@sleep 1
 	@echo "Using config.env for development configuration"
 	@echo "Visit http://localhost:5000 in your browser"
 	cp config.env .env && python app.py
 
 # Run in development mode with HTTPS
-run-dev-https:
+run-dev-https: kill
 	@echo "Starting Flask app in DEVELOPMENT mode with HTTPS..."
-	@echo "Killing any existing Flask processes..."
-	@pkill -f "python app.py" || true
-	@sleep 2
+	@sleep 1
 	@echo "Setting up HTTPS environment..."
 	@if [ ! -f "ssl/cert.pem" ] || [ ! -f "ssl/key.pem" ]; then \
 		echo "SSL certificates not found. Run './setup_dev_https.sh' first."; \
@@ -53,27 +54,23 @@ run-dev-https:
 	cp config.dev.https.env .env && python app.py
 
 # Run in test mode
-run-test:
+run-test: kill
 	@echo "Starting Flask app in TEST mode..."
-	@echo "Killing any existing Flask processes..."
-	@pkill -f "python app.py" || true
-	@sleep 2
+	@sleep 1
 	@echo "Using config.test.env for test configuration"
 	@echo "Visit http://localhost:5000 in your browser"
 	cp config.test.env .env && python app.py
 
 # Run in production mode
-run-prod:
+run-prod: kill
 	@echo "Starting Flask app in PRODUCTION mode..."
-	@echo "Killing any existing Flask processes..."
-	@pkill -f "python app.py" || true
-	@sleep 2
+	@sleep 1
 	@echo "Using config.prod.env for production configuration"
 	@echo "Visit http://localhost:5000 in your browser"
 	cp config.prod.env .env && python app.py
 
 # Run tests
-test:
+test: kill
 	@echo "Running tests..."
 	@echo "Setting up test environment..."
 	cp config.test.env .env
@@ -85,23 +82,23 @@ test-env:
 	cp config.test.env .env
 	@echo "Test environment configured. Run 'make test' to run tests."
 
-test-unit:
+test-unit: kill
 	@echo "Running unit tests..."
-	pytest tests/test_auth_functions.py -v -m "unit"
+	pytest tests/test_auth_functions.py -v
 
-test-e2e:
+test-e2e: kill
 	@echo "Running end-to-end tests..."
-	pytest tests/test_e2e.py -v -m "e2e"
+	pytest tests/test_e2e.py -v
 
-test-coverage:
+test-coverage: kill
 	@echo "Running tests with coverage..."
 	pytest --cov=. --cov-report=html --cov-report=term-missing
 
-test-security:
+test-security: kill
 	@echo "Running security tests..."
 	pytest tests/test_auth_functions.py::TestSecurityFeatures -v
 
-test-all:
+test-all: kill
 	@echo "Running all tests with coverage..."
 	pytest tests/ -v --cov=. --cov-report=html --cov-report=term-missing
 
@@ -109,6 +106,10 @@ test-all:
 kill:
 	@echo "Killing all Flask processes..."
 	@pkill -f "python app.py" || true
+	@pkill -f "flask" || true
+	@pkill -f "gunicorn" || true
+	@lsof -ti:5000 | xargs kill -9 2>/dev/null || true
+	@sleep 1
 	@echo "Flask processes killed"
 
 # Clean up cache files
@@ -138,7 +139,9 @@ format:
 	fi
 
 # Run all checks
-check: lint test
+check: lint
+	@echo "Running tests as part of check..."
+	@make test
 
 # Development setup
 dev-setup: install

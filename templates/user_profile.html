@@ -5,17 +5,28 @@
 {% block body_class %}profile-page{% endblock %}
 
 {% block content %}
-<div class="profile">
-    <div class="header">
-        <h1>Welcome, {{ user.email }}!</h1>
-        <a href="{{ url_for('auth.logout') }}" class="logout">Logout</a>
+<div class="profile-container">
+    <div class="profile-icon">👤</div>
+    <div class="profile-title">Welcome, {{ user.email }}!</div>
+    <div class="profile-info">
+        <div class="info-item">
+            <span class="info-label">User ID:</span>
+            <span class="info-value">{{ user.user_id }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Email:</span>
+            <span class="info-value">{{ user.email }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Status:</span>
+            <span class="info-value">{{ user.status }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Member since:</span>
+            <span class="info-value">{{ user.created_at }}</span>
+        </div>
     </div>
-    <div class="info">
-        <h2>Your Profile</h2>
-        <p><strong>User ID:</strong> {{ user.user_id }}</p>
-        <p><strong>Email:</strong> {{ user.email }}</p>
-        <p><strong>Status:</strong> {{ user.status }}</p>
-        <p><strong>Member since:</strong> {{ user.created_at }}</p>
-    </div>
+    <a href="{{ url_for('auth.logout') }}" class="logout-button">Logout</a>
+    <a href="{{ url_for('home') }}" class="home-button">Go to Home Page</a>
 </div>
 {% endblock %}

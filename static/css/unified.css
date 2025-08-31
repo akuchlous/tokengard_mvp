@@ -1,4 +1,518 @@
-/* Unified CSS - All Page Styles in One File */
+/* ==========================================================================
+   TokenGuard - Unified Stylesheet
+   Combined CSS with CSS variables, utility classes, and page-specific styles
+   ========================================================================== */
+
+/* ==========================================================================
+   CSS Variables (Custom Properties) - Centralized theming
+   ========================================================================== */
+:root {
+    /* Color Palette - Primary Brand Colors */
+    --primary-color: #667eea;
+    --primary-dark: #5a6fd8;
+    --primary-light: #8b9ff0;
+    --secondary-color: #764ba2;
+    --secondary-dark: #6a4190;
+    --secondary-light: #8f5bb8;
+    
+    /* Semantic Colors - Status and Feedback */
+    --success-color: #27ae60;
+    --success-light: #d4edda;
+    --success-dark: #155724;
+    --warning-color: #f39c12;
+    --warning-light: #fff3cd;
+    --warning-dark: #856404;
+    --error-color: #e74c3c;
+    --error-light: #f8d7da;
+    --error-dark: #721c24;
+    --info-color: #3498db;
+    --info-light: #d1ecf1;
+    --info-dark: #0c5460;
+    
+    /* Neutral Colors - Text and Backgrounds */
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --text-muted: #999999;
+    --background-primary: #ffffff;
+    --background-secondary: #f8f9fa;
+    --background-tertiary: #e9ecef;
+    --border-color: #e1e5e9;
+    --border-light: #f1f3f4;
+    
+    /* Spacing Scale - Consistent spacing throughout the app */
+    --spacing-xs: 0.25rem;    /* 4px */
+    --spacing-sm: 0.5rem;     /* 8px */
+    --spacing-md: 1rem;       /* 16px */
+    --spacing-lg: 1.5rem;     /* 24px */
+    --spacing-xl: 2rem;       /* 32px */
+    --spacing-2xl: 3rem;      /* 48px */
+    --spacing-3xl: 4rem;      /* 64px */
+    
+    /* Typography Scale - Consistent font sizes */
+    --font-size-xs: 0.75rem;  /* 12px */
+    --font-size-sm: 0.875rem; /* 14px */
+    --font-size-base: 1rem;   /* 16px */
+    --font-size-lg: 1.125rem; /* 18px */
+    --font-size-xl: 1.25rem;  /* 20px */
+    --font-size-2xl: 1.5rem;  /* 24px */
+    --font-size-3xl: 1.875rem; /* 30px */
+    --font-size-4xl: 2.25rem; /* 36px */
+    
+    /* Border Radius - Consistent rounded corners */
+    --border-radius-sm: 0.25rem;  /* 4px */
+    --border-radius-md: 0.5rem;   /* 8px */
+    --border-radius-lg: 0.75rem;  /* 12px */
+    --border-radius-xl: 1rem;     /* 16px */
+    --border-radius-2xl: 1.5rem;  /* 24px */
+    
+    /* Shadows - Consistent depth and elevation */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    
+    /* Transitions - Consistent animation timing */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+    
+    /* Z-index Scale - Consistent layering */
+    --z-dropdown: 1000;
+    --z-sticky: 1020;
+    --z-fixed: 1030;
+    --z-modal-backdrop: 1040;
+    --z-modal: 1050;
+    --z-popover: 1060;
+    --z-tooltip: 1070;
+}
+
+/* ==========================================================================
+   CSS Reset and Base Styles - Normalize browser differences
+   ========================================================================== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+    color: var(--text-primary);
+    background: var(--background-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   Typography - Consistent text styling
+   ========================================================================== */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+h1 { font-size: var(--font-size-4xl); }
+h2 { font-size: var(--font-size-3xl); }
+h3 { font-size: var(--font-size-2xl); }
+h4 { font-size: var(--font-size-xl); }
+h5 { font-size: var(--font-size-lg); }
+h6 { font-size: var(--font-size-base); }
+
+p {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-secondary);
+}
+
+a {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+a:hover {
+    color: var(--primary-dark);
+    text-decoration: underline;
+}
+
+/* ==========================================================================
+   Layout Components - Reusable layout patterns
+   ========================================================================== */
+
+/* Container - Responsive wrapper for content */
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-md);
+}
+
+/* Flexbox Utilities - Common flexbox patterns */
+.flex {
+    display: flex;
+}
+
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.flex-column {
+    display: flex;
+    flex-direction: column;
+}
+
+.flex-wrap {
+    flex-wrap: wrap;
+}
+
+/* Grid Utilities - Common grid patterns */
+.grid {
+    display: grid;
+}
+
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* ==========================================================================
+   Card Component - Reusable card pattern
+   ========================================================================== */
+.card {
+    background: var(--background-primary);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-xl);
+    transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+}
+
+.card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    margin-bottom: var(--spacing-lg);
+    text-align: center;
+}
+
+.card-body {
+    margin-bottom: var(--spacing-lg);
+}
+
+.card-footer {
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+/* ==========================================================================
+   Form Components - Reusable form patterns
+   ========================================================================== */
+.form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.form-label {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.form-input {
+    width: 100%;
+    padding: var(--spacing-md);
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-base);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-input.error {
+    border-color: var(--error-color);
+}
+
+.form-input.success {
+    border-color: var(--success-color);
+}
+
+/* Form validation messages */
+.form-message {
+    margin-top: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    min-height: 1.25rem;
+}
+
+.form-message.error {
+    color: var(--error-color);
+}
+
+.form-message.success {
+    color: var(--success-color);
+}
+
+.form-message.info {
+    color: var(--info-color);
+}
+
+/* ==========================================================================
+   Button Components - Reusable button patterns
+   ========================================================================== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: none;
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Button variants */
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-secondary {
+    background: var(--background-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: var(--background-tertiary);
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: white;
+}
+
+.btn-error {
+    background: var(--error-color);
+    color: white;
+}
+
+/* Button sizes */
+.btn-sm { padding: var(--spacing-sm) var(--spacing-md); font-size: var(--font-size-sm); }
+.btn-lg { padding: var(--spacing-lg) var(--spacing-xl); font-size: var(--font-size-lg); }
+
+/* Button states */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn.loading .btn-text { display: none; }
+.btn.loading .btn-loading { display: inline; }
+
+/* ==========================================================================
+   Message Components - Flash messages and notifications
+   ========================================================================== */
+.message {
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--spacing-md);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.message.success {
+    background: var(--success-light);
+    color: var(--success-dark);
+    border: 1px solid var(--success-color);
+}
+
+.message.error {
+    background: var(--error-light);
+    color: var(--error-dark);
+    border: 1px solid var(--error-color);
+}
+
+.message.info {
+    background: var(--info-light);
+    color: var(--info-dark);
+    border: 1px solid var(--info-color);
+}
+
+.message.warning {
+    background: var(--warning-light);
+    color: var(--warning-dark);
+    border: 1px solid var(--warning-color);
+}
+
+/* Flash message container */
+.flash-container {
+    position: fixed;
+    top: var(--spacing-lg);
+    right: var(--spacing-lg);
+    z-index: var(--z-tooltip);
+    max-width: 400px;
+}
+
+.flash-message {
+    margin-bottom: var(--spacing-sm);
+    animation: slideInRight var(--transition-normal);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    border-left: 4px solid var(--primary-color);
+    background: var(--background-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.flash-success {
+    border-left-color: var(--success-color);
+    background: var(--success-bg);
+    color: var(--success-color);
+}
+
+.flash-error {
+    border-left-color: var(--error-color);
+    background: var(--error-bg);
+    color: var(--error-color);
+}
+
+.flash-info {
+    border-left-color: var(--info-color);
+    background: var(--info-bg);
+    color: var(--info-color);
+}
+
+.flash-warning {
+    border-left-color: var(--warning-color);
+    background: var(--warning-bg);
+    color: var(--warning-color);
+}
+
+.flash-close {
+    background: none;
+    border: none;
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    margin-left: var(--spacing-sm);
+    opacity: 0.7;
+}
+
+.flash-close:hover {
+    opacity: 1;
+}
+
+/* ==========================================================================
+   Utility Classes - Helper classes for common patterns
+   ========================================================================== */
+
+/* Text utilities */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.text-primary { color: var(--primary-color); }
+.text-secondary { color: var(--text-secondary); }
+.text-success { color: var(--success-color); }
+.text-error { color: var(--error-color); }
+.text-warning { color: var(--warning-color); }
+.text-info { color: var(--info-color); }
+
+/* Spacing utilities */
+.m-0 { margin: 0; }
+.mt-0 { margin-top: 0; }
+.mb-0 { margin-bottom: 0; }
+.ml-0 { margin-left: 0; }
+.mr-0 { margin-right: 0; }
+
+.p-0 { padding: 0; }
+.pt-0 { padding-top: 0; }
+.pb-0 { padding-bottom: 0; }
+.pl-0 { padding-left: 0; }
+.pr-0 { padding-right: 0; }
+
+/* Display utilities */
+.d-none { display: none; }
+.d-block { display: block; }
+.d-inline { display: inline; }
+.d-inline-block { display: inline-block; }
+
+/* ==========================================================================
+   Animations - Smooth transitions and keyframes
+   ========================================================================== */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Animation utilities */
+.animate-fade-in { animation: fadeIn var(--transition-normal); }
+.animate-slide-up { animation: slideUp var(--transition-normal); }
+
+/* ==========================================================================
+   PAGE-SPECIFIC STYLES - Individual page layouts and components
+   ========================================================================== */
 
 /* ===== COMMON STYLES ===== */
 body {
@@ -38,12 +552,6 @@ body {
     font-size: 80px;
     margin-bottom: 20px;
     animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
 }
 
 .home-page .home-title {
@@ -101,49 +609,26 @@ body {
     line-height: 1.5;
 }
 
-.home-page .action-buttons {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin: 20px 0;
+.home-page .cta-section {
+    margin-top: 30px;
 }
 
-.home-page .action-btn {
-    padding: 15px 35px;
+.home-page .cta-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 40px;
     text-decoration: none;
     border-radius: 25px;
     font-weight: bold;
-    font-size: 16px;
-    transition: all 0.3s ease;
+    font-size: 18px;
     display: inline-block;
-    min-width: 140px;
+    margin: 0 10px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.home-page .action-btn.primary {
-    background: #3498db;
-    color: white;
-}
-
-.home-page .action-btn.primary:hover {
-    background: #2980b9;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(52, 152, 219, 0.3);
-}
-
-.home-page .action-btn.secondary {
-    background: #95a5a6;
-    color: white;
-}
-
-.home-page .action-btn.secondary:hover {
-    background: #7f8c8d;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(149, 165, 166, 0.3);
-}
-
-.home-page .btn-text {
-    display: block;
+.home-page .cta-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.2);
 }
 
 .home-page .footer-info {
@@ -218,72 +703,206 @@ body {
 }
 
 /* ===== USER PROFILE PAGE STYLES ===== */
-.profile-page .profile {
-    max-width: 600px;
-    margin: 0 auto;
+.profile-page .profile-container {
     background: white;
     padding: 40px;
     border-radius: 15px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
 }
 
-.profile-page .header {
-    background: #f5f5f5;
-    padding: 20px;
-    border-radius: 8px;
+.profile-page .profile-icon {
+    font-size: 64px;
     margin-bottom: 20px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    color: #3498db;
 }
 
-.profile-page .header h1 {
-    margin: 0 0 15px 0;
+.profile-page .profile-title {
     color: #2c3e50;
+    font-size: 28px;
+    margin-bottom: 30px;
+    font-weight: bold;
 }
 
-.profile-page .logout {
-    background: #dc3545;
-    color: white;
-    padding: 10px 20px;
-    text-decoration: none;
-    border-radius: 5px;
-    display: inline-block;
-    transition: background 0.3s ease;
+.profile-page .profile-info {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 1px solid #e9ecef;
 }
 
-.profile-page .logout:hover {
-    background: #c82333;
+.profile-page .info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #e9ecef;
 }
 
-.profile-page .info {
-    background: white;
-    padding: 20px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+.profile-page .info-item:last-child {
+    border-bottom: none;
 }
 
-.profile-page .info h2 {
-    margin-top: 0;
+.profile-page .info-label {
     color: #2c3e50;
-    border-bottom: 2px solid #3498db;
-    padding-bottom: 10px;
-}
-
-.profile-page .info p {
-    margin: 15px 0;
-    color: #555;
+    font-weight: bold;
     font-size: 16px;
 }
 
-.profile-page .info strong {
+.profile-page .info-value {
+    color: #7f8c8d;
+    font-size: 16px;
+}
+
+.profile-page .logout-button {
+    background: #dc3545;
+    color: white;
+    padding: 12px 30px;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    display: inline-block;
+    margin: 0 10px 20px 10px;
+    transition: background 0.3s ease;
+}
+
+.profile-page .logout-button:hover {
+    background: #c82333;
+}
+
+.profile-page .home-button {
+    background: #3498db;
+    color: white;
+    padding: 12px 30px;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    display: inline-block;
+    margin: 0 10px 20px 10px;
+    transition: background 0.3s ease;
+}
+
+.profile-page .home-button:hover {
+    background: #2980b9;
+}
+
+/* ===== AUTHENTICATION PAGE STYLES ===== */
+.auth-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.auth-page .auth-card {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.auth-page .auth-header {
+    margin-bottom: 30px;
+}
+
+.auth-page .auth-header h1 {
     color: #2c3e50;
+    font-size: 28px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.auth-page .auth-header p {
+    color: #7f8c8d;
+    font-size: 16px;
+    margin: 0;
+}
+
+.auth-page .auth-form {
+    text-align: left;
+    margin-bottom: 30px;
+}
+
+.auth-page .form-group {
+    margin-bottom: 20px;
+}
+
+.auth-page .auth-page .form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #2c3e50;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.auth-page .form-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.auth-page .form-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.auth-page .btn {
+    width: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.auth-page .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.auth-page .auth-footer {
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+.auth-page .auth-footer p {
+    margin-bottom: 10px;
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.auth-page .auth-footer a {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.auth-page .auth-footer a:hover {
+    text-decoration: underline;
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
     .home-page .home-container,
     .error-page .error-container,
-    .profile-page .profile {
+    .profile-page .profile-container,
+    .auth-page .auth-container {
         padding: 30px 20px;
         margin: 20px;
     }
@@ -298,102 +917,76 @@ body {
     
     .home-page .features-section {
         grid-template-columns: 1fr;
-        gap: 20px;
     }
     
-    .home-page .action-buttons {
+    .home-page .cta-button {
+        display: block;
+        margin: 10px 0;
+    }
+    
+    .profile-page .info-item {
         flex-direction: column;
-        align-items: center;
+        align-items: flex-start;
+        gap: 5px;
     }
     
-    .home-page .action-btn {
-        width: 100%;
-        max-width: 250px;
+    .profile-page .logout-button,
+    .profile-page .home-button {
+        display: block;
+        margin: 10px 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .home-page .home-container,
+    .error-page .error-container,
+    .profile-page .profile-container,
+    .auth-page .auth-container {
+        padding: 20px 15px;
+        margin: 15px;
     }
     
-    .error-page .error-title {
+    .home-page .home-title {
+        font-size: 28px;
+    }
+    
+    .home-page .logo-icon {
+        font-size: 60px;
+    }
+    
+    .profile-page .profile-title,
+    .error-page .error-title,
+    .auth-page .auth-header h1 {
         font-size: 24px;
     }
-    
-    .profile-page .header h1 {
-        font-size: 24px;
+}
+
+/* ==========================================================================
+   Print Styles - Optimized for printing
+   ========================================================================== */
+@media print {
+    .auth-page,
+    .home-page,
+    .error-page,
+    .profile-page {
+        background: white;
     }
-}
-
-/* ===== ACTIVATION MESSAGE PAGE STYLES ===== */
-.activation-message {
-    text-align: center;
-    padding: 2rem 0;
-}
-
-.icon-container {
-    margin-bottom: 2rem;
-}
-
-.email-icon {
-    font-size: 4rem;
-    display: block;
-}
-
-.activation-message h2 {
-    color: #27ae60;
-    margin-bottom: 1rem;
-}
-
-.activation-message p {
-    font-size: 1.1rem;
-    margin-bottom: 2rem;
-    color: #555;
-}
-
-.activation-steps {
-    background: #f8f9fa;
-    padding: 1.5rem;
-    border-radius: 8px;
-    margin: 2rem 0;
-    text-align: left;
-}
-
-.activation-steps h3 {
-    margin-bottom: 1rem;
-    color: #3498db;
-}
-
-.activation-steps ol {
-    padding-left: 1.5rem;
-}
-
-.activation-steps li {
-    margin-bottom: 0.5rem;
-    color: #555;
-}
-
-.countdown {
-    background: #3498db;
-    color: white;
-    padding: 1rem;
-    border-radius: 8px;
-    margin: 2rem 0;
-}
-
-.countdown p {
-    margin: 0;
-    font-size: 1.1rem;
-}
-
-#countdown {
-    font-weight: bold;
-    font-size: 1.2rem;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin: 2rem 0;
-    flex-wrap: wrap;
-}
-
-.action-buttons .btn {
-    min-width: 150px;
+    
+    .btn,
+    .flash-container,
+    .cta-button,
+    .form-button,
+    .logout-button,
+    .home-button {
+        display: none;
+    }
+    
+    .card,
+    .home-container,
+    .error-container,
+    .profile-container,
+    .auth-container {
+        box-shadow: none;
+        border: 1px solid var(--border-color);
+    }
 }
