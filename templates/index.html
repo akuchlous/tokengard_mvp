@@ -1,50 +1,48 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>TokenGuard - Secure Authentication System</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
-</head>
-<body>
-    <div class="home-container">
-        <div class="home-content">
-            <div class="logo-section">
-                <div class="logo-icon">🔐</div>
-                <h1 class="home-title">TokenGuard</h1>
-                <p class="home-subtitle">Secure authentication system for modern applications</p>
+{% extends "base.html" %}
+
+{% block title %}TokenGuard - Secure Authentication System{% endblock %}
+
+{% block body_class %}home-page{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <div class="home-content">
+        <div class="logo-section">
+            <div class="logo-icon">🔐</div>
+            <h1 class="home-title">TokenGuard</h1>
+            <p class="home-subtitle">Secure authentication system for modern applications</p>
+        </div>
+        
+        <div class="features-section">
+            <div class="feature">
+                <div class="feature-icon">🛡️</div>
+                <h3>Secure</h3>
+                <p>Advanced encryption and JWT tokens</p>
             </div>
-            
-            <div class="features-section">
-                <div class="feature">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>Secure</h3>
-                    <p>Advanced encryption and JWT tokens</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Fast</h3>
-                    <p>Lightning-fast authentication</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🔒</div>
-                    <h3>Reliable</h3>
-                    <p>Enterprise-grade security</p>
-                </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3>Fast</h3>
+                <p>Lightning-fast authentication</p>
             </div>
-            
-            <div class="action-buttons">
-                <a href="{{ url_for('auth.login') }}" class="action-btn primary">
-                    <span class="btn-text">Sign In</span>
-                </a>
-                <a href="{{ url_for('auth.register') }}" class="action-btn secondary">
-                    <span class="btn-text">Sign Up</span>
-                </a>
-            </div>
-            
-            <div class="footer-info">
-                <p>Built with Flask • Secure by Design</p>
+            <div class="feature">
+                <div class="feature-icon">🔒</div>
+                <h3>Reliable</h3>
+                <p>Enterprise-grade security</p>
             </div>
         </div>
+        
+        <div class="action-buttons">
+            <a href="{{ url_for('auth.login') }}" class="action-btn primary">
+                <span class="btn-text">Sign In</span>
+            </a>
+            <a href="{{ url_for('auth.register') }}" class="action-btn secondary">
+                <span class="btn-text">Sign Up</span>
+            </a>
+        </div>
+        
+        <div class="footer-info">
+            <p>Built with Flask • Secure by Design</p>
+        </div>
     </div>
-</body>
-</html>
+</div>
+{% endblock %}

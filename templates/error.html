@@ -1,36 +1,36 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ title }} - TokenGuard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/error.css') }}">
-</head>
-<body>
-    <div class="error-container">
-        <div class="error-icon">⚠️</div>
-        <div class="error-title">{{ title }}</div>
-        <div class="error-message">{{ message }}</div>
-        <a href="{{ url_for('home') }}" class="home-button">Go to Home Page</a>
-        <div class="redirect-info">
-            You will be automatically redirected to the home page in 
-            <span class="countdown" id="countdown">10</span> seconds.
-        </div>
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - TokenGuard{% endblock %}
+
+{% block body_class %}error-page{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-icon">⚠️</div>
+    <div class="error-title">{{ title }}</div>
+    <div class="error-message">{{ message }}</div>
+    <a href="{{ url_for('home') }}" class="home-button">Go to Home Page</a>
+    <div class="redirect-info">
+        You will be automatically redirected to the home page in 
+        <span class="countdown" id="countdown">10</span> seconds.
     </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Countdown timer
+    let timeLeft = 10;
+    const countdownElement = document.getElementById('countdown');
     
-    <script>
-        // Countdown timer
-        let timeLeft = 10;
-        const countdownElement = document.getElementById('countdown');
+    const timer = setInterval(() => {
+        timeLeft--;
+        countdownElement.textContent = timeLeft;
         
-        const timer = setInterval(() => {
-            timeLeft--;
-            countdownElement.textContent = timeLeft;
-            
-            if (timeLeft <= 0) {
-                clearInterval(timer);
-                window.location.href = '{{ url_for("home") }}';
-            }
-        }, 1000);
-    </script>
-</body>
-</html>
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            window.location.href = '{{ url_for("home") }}';
+        }
+    }, 1000);
+</script>
+{% endblock %}

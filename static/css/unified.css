@@ -1,0 +1,321 @@
+/* Unified CSS - All Page Styles in One File */
+
+/* ===== COMMON STYLES ===== */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===== HOME PAGE STYLES ===== */
+.home-page .home-container {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    text-align: center;
+    max-width: 800px;
+    width: 90%;
+}
+
+.home-page .home-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+}
+
+.home-page .logo-section {
+    margin-bottom: 20px;
+}
+
+.home-page .logo-icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.home-page .home-title {
+    color: #2c3e50;
+    font-size: 48px;
+    margin: 0 0 15px 0;
+    font-weight: bold;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.home-page .home-subtitle {
+    color: #7f8c8d;
+    font-size: 18px;
+    margin: 0;
+    line-height: 1.6;
+}
+
+.home-page .features-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 25px;
+    margin: 20px 0;
+    width: 100%;
+}
+
+.home-page .feature {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.home-page .feature:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.home-page .feature-icon {
+    font-size: 40px;
+    margin-bottom: 15px;
+}
+
+.home-page .feature h3 {
+    color: #2c3e50;
+    margin: 0 0 10px 0;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.home-page .feature p {
+    color: #6c757d;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.home-page .action-buttons {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.home-page .action-btn {
+    padding: 15px 35px;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    display: inline-block;
+    min-width: 140px;
+}
+
+.home-page .action-btn.primary {
+    background: #3498db;
+    color: white;
+}
+
+.home-page .action-btn.primary:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(52, 152, 219, 0.3);
+}
+
+.home-page .action-btn.secondary {
+    background: #95a5a6;
+    color: white;
+}
+
+.home-page .action-btn.secondary:hover {
+    background: #7f8c8d;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(149, 165, 166, 0.3);
+}
+
+.home-page .btn-text {
+    display: block;
+}
+
+.home-page .footer-info {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+.home-page .footer-info p {
+    color: #95a5a6;
+    font-size: 14px;
+    margin: 0;
+    font-style: italic;
+}
+
+/* ===== ERROR PAGE STYLES ===== */
+.error-page .error-container {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+}
+
+.error-page .error-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    color: #e74c3c;
+}
+
+.error-page .error-title {
+    color: #2c3e50;
+    font-size: 28px;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+.error-page .error-message {
+    color: #7f8c8d;
+    font-size: 16px;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.error-page .home-button {
+    background: #3498db;
+    color: white;
+    padding: 12px 30px;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    display: inline-block;
+    margin-bottom: 20px;
+    transition: background 0.3s ease;
+}
+
+.error-page .home-button:hover {
+    background: #2980b9;
+}
+
+.error-page .redirect-info {
+    color: #95a5a6;
+    font-size: 14px;
+    margin-top: 20px;
+}
+
+.error-page .countdown {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* ===== USER PROFILE PAGE STYLES ===== */
+.profile-page .profile {
+    max-width: 600px;
+    margin: 0 auto;
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.profile-page .header {
+    background: #f5f5f5;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.profile-page .header h1 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+}
+
+.profile-page .logout {
+    background: #dc3545;
+    color: white;
+    padding: 10px 20px;
+    text-decoration: none;
+    border-radius: 5px;
+    display: inline-block;
+    transition: background 0.3s ease;
+}
+
+.profile-page .logout:hover {
+    background: #c82333;
+}
+
+.profile-page .info {
+    background: white;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.profile-page .info h2 {
+    margin-top: 0;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.profile-page .info p {
+    margin: 15px 0;
+    color: #555;
+    font-size: 16px;
+}
+
+.profile-page .info strong {
+    color: #2c3e50;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+    .home-page .home-container,
+    .error-page .error-container,
+    .profile-page .profile {
+        padding: 30px 20px;
+        margin: 20px;
+    }
+    
+    .home-page .home-title {
+        font-size: 36px;
+    }
+    
+    .home-page .home-subtitle {
+        font-size: 16px;
+    }
+    
+    .home-page .features-section {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .home-page .action-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .home-page .action-btn {
+        width: 100%;
+        max-width: 250px;
+    }
+    
+    .error-page .error-title {
+        font-size: 24px;
+    }
+    
+    .profile-page .header h1 {
+        font-size: 24px;
+    }
+}

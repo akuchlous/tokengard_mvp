@@ -1,47 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TokenGuard{% endblock %}</title>
-    
-    <!-- Common CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    
-    <!-- Page-specific CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/unified.css') }}">
     {% block extra_css %}{% endblock %}
-    
-    <!-- Meta tags for SEO and social sharing -->
-    <meta name="description" content="{% block description %}Secure authentication system for modern web applications{% endblock %}">
-    <meta name="keywords" content="{% block keywords %}authentication, security, flask, web app{% endblock %}">
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
-    <!-- Main Container -->
-    <div class="container">
-        {% block content %}{% endblock %}
-    </div>
+    {% block content %}{% endblock %}
     
-    <!-- Common JavaScript -->
-    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
-    
-    <!-- Page-specific JavaScript -->
-    {% block extra_js %}{% endblock %}
-    
-    <!-- Flash Messages Display -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div id="flash-messages" class="flash-container">
-                {% for category, message in messages %}
-                    <div class="flash-message flash-{{ category }}" data-category="{{ category }}">
-                        <span class="flash-text">{{ message }}</span>
-                        <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
+    {% block scripts %}{% endblock %}
 </body>
 </html>
