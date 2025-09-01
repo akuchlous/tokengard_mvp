@@ -309,13 +309,17 @@ a:hover {
 }
 
 .btn-secondary {
-    background: var(--background-secondary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white !important;
+    border: 1px solid #5a6268;
+    font-weight: 600;
 }
 
 .btn-secondary:hover {
-    background: var(--background-tertiary);
+    background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+    color: white !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
 }
 
 .btn-logs {
@@ -387,6 +391,20 @@ a:hover {
 .btn-error {
     background: var(--error-color);
     color: white;
+}
+
+.btn-light {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white !important;
+    border: 1px solid #5a6268;
+    font-weight: 600;
+}
+
+.btn-light:hover {
+    background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+    color: white !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
 }
 
 /* Button sizes */

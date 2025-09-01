@@ -85,8 +85,56 @@ class TokenGuardDemo:
             print(f"❌ Error waiting for {description}: {e}")
             return None
     
-    def safe_click_element(self, element, description="element"):
-        """Safely click an element with retry logic."""
+    def highlight_element(self, element, duration=2000, color="red"):
+        """Highlight an element with a colored border for specified duration."""
+        try:
+            # Store original style
+            original_style = element.get_attribute("style")
+            
+            # Apply highlight style
+            highlight_script = f"""
+            arguments[0].style.border = '3px solid {color}';
+            arguments[0].style.backgroundColor = 'rgba(255, 255, 0, 0.3)';
+            arguments[0].style.boxShadow = '0 0 10px {color}';
+            arguments[0].style.transition = 'all 0.3s ease';
+            arguments[0].style.zIndex = '9999';
+            """
+            self.driver.execute_script(highlight_script, element)
+            
+            # Wait for highlight duration
+            time.sleep(duration / 1000)
+            
+            # Restore original style
+            restore_script = """
+            arguments[0].style.border = '';
+            arguments[0].style.backgroundColor = '';
+            arguments[0].style.boxShadow = '';
+            arguments[0].style.transition = '';
+            arguments[0].style.zIndex = '';
+            """
+            self.driver.execute_script(restore_script, element)
+            
+            return True
+        except Exception as e:
+            print(f"⚠️  Could not highlight element: {e}")
+            return False
+    
+    def highlight_and_show(self, element, description="element", duration=3000, color="red"):
+        """Highlight an element and show a message about what will be clicked."""
+        try:
+            # Highlight the element
+            self.highlight_element(element, duration, color)
+            
+            # Show a popup message
+            self.show_popup(f"Will click: {description}", "#3498db", 1000)
+            
+            return True
+        except Exception as e:
+            print(f"⚠️  Could not highlight and show element: {e}")
+            return False
+    
+    def safe_click_element(self, element, description="element", highlight=True, highlight_duration=2000):
+        """Safely click an element with retry logic and optional highlighting."""
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -94,6 +142,12 @@ class TokenGuardDemo:
                 WebDriverWait(self.driver, 5).until(
                     EC.element_to_be_clickable(element)
                 )
+                
+                # Highlight element before clicking if requested
+                if highlight:
+                    print(f"🔍 Highlighting {description}...")
+                    self.highlight_element(element, highlight_duration, "red")
+                
                 element.click()
                 print(f"✅ Clicked {description}")
                 return True
@@ -213,8 +267,11 @@ class TokenGuardDemo:
                 print("❌ Could not find signup button with any selector")
                 return False
             
+            # Highlight and show what will be clicked
+            self.highlight_and_show(signup_button, "Sign Up button", 3000, "green")
+            
             # Click the button with retry logic
-            if not self.safe_click_element(signup_button, "signup button"):
+            if not self.safe_click_element(signup_button, "signup button", highlight=False):
                 return False
             
             # Wait for navigation to registration page
@@ -295,8 +352,11 @@ class TokenGuardDemo:
                 print("❌ Could not find submit button")
                 return False
             
+            # Highlight and show what will be clicked
+            self.highlight_and_show(submit_button, "Create Account button", 3000, "blue")
+            
             # Click submit button with retry logic
-            if not self.safe_click_element(submit_button, "submit button"):
+            if not self.safe_click_element(submit_button, "submit button", highlight=False):
                 return False
             
             # Wait for form submission to complete
@@ -624,6 +684,9 @@ class TokenGuardDemo:
             )
             print("✅ Found Sign In button!")
             
+            # Highlight and show what will be clicked
+            self.highlight_and_show(signin_button, "Sign In button", 3000, "orange")
+            
             signin_button.click()
             print("✅ Clicked Sign In button!")
             
@@ -673,6 +736,9 @@ class TokenGuardDemo:
                 'button[type="submit"], .btn, input[type="submit"]'
             )
             print("✅ Found Sign In button!")
+            
+            # Highlight and show what will be clicked
+            self.highlight_and_show(signin_button, "Login Submit button", 3000, "purple")
             
             signin_button.click()
             print("✅ Clicked Sign In button!")
@@ -769,6 +835,9 @@ class TokenGuardDemo:
             self.driver.execute_script(popup_script)
             time.sleep(1)  # Wait for popup to be visible
             
+            # Highlight and show what will be clicked
+            self.highlight_and_show(api_keys_link, "View API Keys link", 3000, "teal")
+            
             # Click the API Keys link
             api_keys_link.click()
             print("✅ Clicked 'View API Keys' link")
@@ -818,6 +887,9 @@ class TokenGuardDemo:
                 first_test_button = test_buttons[0]
                 print("✅ Found first test button")
                 
+                # Highlight and show what will be clicked
+                self.highlight_and_show(first_test_button, "Test API Key button", 3000, "red")
+                
                 # Click the test button
                 first_test_button.click()
                 print("✅ Clicked first test button")
@@ -852,6 +924,9 @@ class TokenGuardDemo:
             # Clear and set first payload
             payload_textarea.clear()
             payload_textarea.send_keys('{"message": "First test", "data": {"test": 1}}')
+            
+            # Highlight and show what will be clicked
+            self.highlight_and_show(test_button, "Test API Key button", 2000, "red")
             test_button.click()
             
             # Wait for results and page reload
@@ -862,6 +937,9 @@ class TokenGuardDemo:
             print("   Testing with second payload...")
             payload_textarea.clear()
             payload_textarea.send_keys('{"message": "Second test", "data": {"test": 2, "timestamp": "' + str(int(time.time())) + '"}}')
+            
+            # Highlight and show what will be clicked
+            self.highlight_and_show(test_button, "Test API Key button", 2000, "red")
             test_button.click()
             
             # Wait for results and page reload
@@ -960,6 +1038,9 @@ class TokenGuardDemo:
                     continue
             
             if first_deactivate_button:
+                # Highlight and show what will be clicked
+                self.highlight_and_show(first_deactivate_button, "Deactivate Key button", 3000, "red")
+                
                 # Click the deactivate button using JavaScript
                 self.driver.execute_script("arguments[0].click();", first_deactivate_button)
                 print("✅ Clicked deactivate button")
