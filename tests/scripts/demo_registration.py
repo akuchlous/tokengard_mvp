@@ -652,7 +652,7 @@ class TokenGuardDemo:
                 }, 300);
             });
             
-            // Auto-destruct in 5 seconds (longer since user needs to dismiss)
+            // Auto-destruct in 1 second
             setTimeout(() => {
                 if (popup.parentNode) {
                     popup.style.animation = 'fadeOut 0.3s ease-out';
@@ -662,19 +662,19 @@ class TokenGuardDemo:
                         }
                     }, 300);
                 }
-            }, 5000);
+            }, 1000);
             """
             
             try:
                 self.driver.execute_script(popup_script)
                 print("✅ Activation reminder popup displayed!")
-                print("   Popup will auto-destruct in 5 seconds, or click 'Dismiss'")
+                print("   Popup will auto-destruct in 1 second")
             except Exception as e:
                 print(f"⚠️  Could not show popup: {e}")
             
-            # Wait for user to dismiss popup (or auto-dismiss after 15 seconds)
-            print("   Waiting for popup to be dismissed...")
-            time.sleep(1)  # Wait a bit for popup to be visible
+            # Wait for popup to auto-dismiss
+            print("   Waiting for popup to auto-dismiss...")
+            time.sleep(1.5)  # Wait for popup to be visible and auto-dismiss
             
             # Now click the Sign In button
             print("   Clicking Sign In button...")
