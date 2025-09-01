@@ -12,9 +12,9 @@ import subprocess
 import time
 import signal
 import os
-from app import create_app, db
-from models import User, ActivationToken, PasswordResetToken, APIKey
-from auth_utils import hash_password
+from app import create_app
+from app.models import db, User, ActivationToken, PasswordResetToken, APIKey
+from app.utils.auth_utils import hash_password
 import requests
 
 
@@ -239,7 +239,7 @@ def expired_password_reset_token(db_session, test_user):
 @pytest.fixture
 def test_api_key(db_session, test_user):
     """Create a test API key for testing."""
-    from models import generate_api_key_value
+    from app.models.utils import generate_api_key_value
     api_key = APIKey(
         user_id=test_user.id,
         key_name='test12',
@@ -254,7 +254,7 @@ def test_api_key(db_session, test_user):
 @pytest.fixture
 def test_api_key_disabled(db_session, test_user):
     """Create a disabled test API key for testing."""
-    from models import generate_api_key_value
+    from app.models.utils import generate_api_key_value
     api_key = APIKey(
         user_id=test_user.id,
         key_name='test34',

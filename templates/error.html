@@ -9,7 +9,7 @@
     <div class="error-icon">⚠️</div>
     <div class="error-title">{{ title }}</div>
     <div class="error-message">{{ message }}</div>
-    <a href="{{ url_for('home') }}" class="home-button">Go to Home Page</a>
+            <a href="{{ url_for('main.home') }}" class="home-button">Go to Home Page</a>
     <div class="redirect-info">
         You will be automatically redirected to the home page in 
         <span class="countdown" id="countdown">10</span> seconds.
@@ -29,7 +29,7 @@
         
         if (timeLeft <= 0) {
             clearInterval(timer);
-            window.location.href = '{{ url_for("home") }}';
+            window.location.href = '{{ url_for("main.home") }}';
         }
     }, 1000);
 </script>

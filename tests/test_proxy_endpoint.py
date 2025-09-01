@@ -5,8 +5,10 @@ Tests for the proxy endpoint that validates API keys
 
 import pytest
 import json
-from models import db, User, APIKey, create_default_api_key
-from auth_utils import hash_password
+from app.models import db, User, APIKey
+from app.models import APIKey
+create_default_api_key = APIKey.create_default_api_keys
+from app.utils.auth_utils import hash_password
 
 
 class TestProxyEndpoint:

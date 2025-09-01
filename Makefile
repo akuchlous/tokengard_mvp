@@ -111,8 +111,18 @@ demo: kill
 	@cp config.env .env
 	@python app.py &
 	@echo "Waiting for server to start..."
-	@sleep 3
-	@echo "Server started! Running demo script..."
+	@sleep 5
+	@echo "Checking server health..."
+	@for i in 1 2 3 4 5; do \
+		if curl -s http://localhost:5000/health > /dev/null; then \
+			echo "✅ Server is ready!"; \
+			break; \
+		else \
+			echo "   Server not ready, waiting... (attempt $$i/5)"; \
+			sleep 2; \
+		fi; \
+	done
+	@echo "Running demo script..."
 	@python tests/scripts/demo_registration.py
 	@echo ""
 	@echo "Demo completed! The Flask server is still running in the background."

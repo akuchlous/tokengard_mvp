@@ -1,7 +1,7 @@
 import pytest
 import json
-from models import User, PasswordResetToken
-from auth_utils import hash_password
+from app.models import User, PasswordResetToken
+from app.utils.auth_utils import hash_password
 
 
 class TestAuth:

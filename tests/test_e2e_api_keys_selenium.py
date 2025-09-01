@@ -238,7 +238,7 @@ class TestAPIKeysE2E:
             # Step 11: Check for API keys section on the dedicated page
             print("🔍 Checking API keys section...")
             api_keys_section = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "api-keys-section"))
+                EC.presence_of_element_located((By.CLASS_NAME, "excel-table-container"))
             )
             print("✅ API keys section found on keys page")
             
@@ -246,7 +246,7 @@ class TestAPIKeysE2E:
             print("📋 Checking for API keys...")
             try:
                 # Look for the table structure
-                keys_table = driver.find_element(By.CLASS_NAME, "api-keys-table")
+                keys_table = driver.find_element(By.CLASS_NAME, "excel-table")
                 api_key_rows = keys_table.find_elements(By.CSS_SELECTOR, "tbody tr")
                 
                 if api_key_rows:

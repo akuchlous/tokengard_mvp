@@ -28,8 +28,8 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from app import create_app
-from models import db, User, ActivationToken
-from auth_utils import hash_password
+from app.models import db, User, ActivationToken
+from app.utils.auth_utils import hash_password
 
 
 # Add timeout to all tests to prevent hanging

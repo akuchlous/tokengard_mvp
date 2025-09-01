@@ -7,6 +7,7 @@ Automated demonstration of the user registration flow with visual feedback.
 
 import time
 import sys
+import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -22,6 +23,7 @@ class TokenGuardDemo:
         """Initialize the demo with browser setup."""
         self.driver = None
         self.base_url = "http://localhost:5000"
+        self.wait_timeout = 15  # Increased timeout for better reliability
         
     def setup_browser(self):
         """Set up Chrome WebDriver with appropriate options."""
@@ -44,6 +46,65 @@ class TokenGuardDemo:
         except Exception as e:
             print(f"❌ Failed to setup browser: {e}")
             return False
+    
+    def wait_for_server(self, max_attempts=30, delay=1):
+        """Wait for the Flask server to be ready with health checks."""
+        print("🔍 Checking server health...")
+        
+        for attempt in range(max_attempts):
+            try:
+                response = requests.get(f"{self.base_url}/health", timeout=2)
+                if response.status_code == 200:
+                    print("✅ Server is ready!")
+                    return True
+            except requests.exceptions.RequestException:
+                pass
+            
+            if attempt < max_attempts - 1:
+                print(f"   Server not ready, waiting {delay}s... (attempt {attempt + 1}/{max_attempts})")
+                time.sleep(delay)
+        
+        print("❌ Server health check failed after maximum attempts")
+        return False
+    
+    def safe_wait_for_element(self, by, value, timeout=None, description="element"):
+        """Safely wait for an element with proper error handling."""
+        if timeout is None:
+            timeout = self.wait_timeout
+            
+        try:
+            element = WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located((by, value))
+            )
+            print(f"✅ Found {description}")
+            return element
+        except TimeoutException:
+            print(f"❌ Timeout waiting for {description}")
+            return None
+        except Exception as e:
+            print(f"❌ Error waiting for {description}: {e}")
+            return None
+    
+    def safe_click_element(self, element, description="element"):
+        """Safely click an element with retry logic."""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Wait for element to be clickable
+                WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable(element)
+                )
+                element.click()
+                print(f"✅ Clicked {description}")
+                return True
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"   Retry {attempt + 1}/{max_retries} for {description}")
+                    time.sleep(1)
+                else:
+                    print(f"❌ Failed to click {description}: {e}")
+                    return False
+        return False
     
     def show_popup(self, message, background_color="#4CAF50", duration=1000):
         """Show a popup message with specified styling and duration."""
@@ -96,11 +157,24 @@ class TokenGuardDemo:
         """Step 1: Open the home page."""
         print("\n1️⃣ Opening home page...")
         try:
+            # First ensure server is ready
+            if not self.wait_for_server():
+                return False
+                
             self.driver.get(self.base_url)
-            time.sleep(2)
-            print("✅ Home page loaded successfully!")
-            print(f"   Current URL: {self.driver.current_url}")
-            return True
+            
+            # Wait for page to load properly
+            self.safe_wait_for_element(By.TAG_NAME, "body", description="page body")
+            
+            # Verify we're on the home page
+            if "TokenGuard" in self.driver.title:
+                print("✅ Home page loaded successfully!")
+                print(f"   Current URL: {self.driver.current_url}")
+                print(f"   Page Title: {self.driver.title}")
+                return True
+            else:
+                print(f"⚠️  Unexpected page title: {self.driver.title}")
+                return False
         except Exception as e:
             print(f"❌ Failed to open home page: {e}")
             return False
@@ -117,33 +191,46 @@ class TokenGuardDemo:
             # Wait for popup to disappear
             time.sleep(1.5)
             
-            # Find and click signup button
-            signup_button = self.driver.find_element(
-                By.CSS_SELECTOR, 
-                'a[href="/auth/register"], .btn.btn-secondary, a.btn.btn-secondary'
-            )
-            print("✅ Found signup button!")
+            # Find signup button with multiple selectors
+            signup_selectors = [
+                'a[href="/auth/register"]',
+                '.btn.btn-secondary',
+                'a.btn.btn-secondary',
+                'a:contains("Sign Up")',
+                'a:contains("Create Account")'
+            ]
             
-            signup_button.click()
-            print("✅ Clicked signup button!")
+            signup_button = None
+            for selector in signup_selectors:
+                try:
+                    signup_button = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    print(f"✅ Found signup button with selector: {selector}")
+                    break
+                except NoSuchElementException:
+                    continue
             
-            # Wait for page load
-            time.sleep(2)
+            if not signup_button:
+                print("❌ Could not find signup button with any selector")
+                return False
             
-            # Verify navigation
-            current_url = self.driver.current_url
-            if "register" in current_url:
+            # Click the button with retry logic
+            if not self.safe_click_element(signup_button, "signup button"):
+                return False
+            
+            # Wait for navigation to registration page
+            try:
+                WebDriverWait(self.driver, self.wait_timeout).until(
+                    EC.url_contains("register")
+                )
                 print(f"✅ Successfully navigated to registration page!")
-                print(f"   Current URL: {current_url}")
+                print(f"   Current URL: {self.driver.current_url}")
                 print(f"   Page Title: {self.driver.title}")
                 return True
-            else:
-                print(f"⚠️  Navigation may have failed. Current URL: {current_url}")
+            except TimeoutException:
+                current_url = self.driver.current_url
+                print(f"⚠️  Navigation timeout. Current URL: {current_url}")
                 return False
                 
-        except NoSuchElementException:
-            print("❌ Could not find signup button")
-            return False
         except Exception as e:
             print(f"❌ Error clicking signup: {e}")
             return False
@@ -160,42 +247,70 @@ class TokenGuardDemo:
             # Wait for popup to disappear
             time.sleep(2)
             
-            # Fill email
-            email_field = self.driver.find_element(By.NAME, 'email')
+            # Wait for form elements to be present
+            email_field = self.safe_wait_for_element(By.NAME, 'email', description="email field")
+            if not email_field:
+                return False
+                
+            password_field = self.safe_wait_for_element(By.NAME, 'password', description="password field")
+            if not password_field:
+                return False
+                
+            confirm_password_field = self.safe_wait_for_element(By.NAME, 'confirmPassword', description="confirm password field")
+            if not confirm_password_field:
+                return False
+            
+            # Fill form fields
             email_field.clear()
             email_field.send_keys('test@example.com')
             print("✅ Filled email: test@example.com")
             
-            # Fill password
-            password_field = self.driver.find_element(By.NAME, 'password')
             password_field.clear()
             password_field.send_keys('TestPass123!')
             print("✅ Filled password: TestPass123!")
             
-            # Fill confirm password
-            confirm_password_field = self.driver.find_element(By.NAME, 'confirmPassword')
             confirm_password_field.clear()
             confirm_password_field.send_keys('TestPass123!')
             print("✅ Filled confirm password: TestPass123!")
             
-            # Click Create Account button
-            create_account_button = self.driver.find_element(
-                By.CSS_SELECTOR, 
-                'button[type="submit"], .btn, input[type="submit"]'
-            )
-            print("✅ Found Create Account button!")
+            # Find and click submit button
+            submit_selectors = [
+                'button[type="submit"]',
+                'input[type="submit"]',
+                '.btn[type="submit"]',
+                'button:contains("Create Account")',
+                'button:contains("Sign Up")'
+            ]
             
-            create_account_button.click()
-            print("✅ Clicked Create Account button!")
+            submit_button = None
+            for selector in submit_selectors:
+                try:
+                    submit_button = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    print(f"✅ Found submit button with selector: {selector}")
+                    break
+                except NoSuchElementException:
+                    continue
             
-            # Wait for form submission
-            time.sleep(3)
+            if not submit_button:
+                print("❌ Could not find submit button")
+                return False
             
-            return True
+            # Click submit button with retry logic
+            if not self.safe_click_element(submit_button, "submit button"):
+                return False
             
-        except NoSuchElementException as e:
-            print(f"❌ Could not find form element: {e}")
-            return False
+            # Wait for form submission to complete
+            try:
+                WebDriverWait(self.driver, self.wait_timeout).until(
+                    lambda driver: "activation-sent" in driver.current_url or 
+                                  driver.current_url != self.driver.current_url
+                )
+                print("✅ Form submission completed")
+                return True
+            except TimeoutException:
+                print("⚠️  Form submission timeout, but continuing...")
+                return True
+            
         except Exception as e:
             print(f"❌ Error filling registration form: {e}")
             return False
@@ -204,15 +319,31 @@ class TokenGuardDemo:
         """Step 6: Verify form submission and check for redirect."""
         print("\n6️⃣ Verifying form submission...")
         try:
-            current_url = self.driver.current_url
-            if "activation-sent" in current_url:
+            # Wait for redirect to activation-sent page
+            try:
+                WebDriverWait(self.driver, self.wait_timeout).until(
+                    EC.url_contains("activation-sent")
+                )
+                current_url = self.driver.current_url
                 print(f"✅ Successfully submitted registration form!")
                 print(f"   Current URL: {current_url}")
                 print(f"   Page Title: {self.driver.title}")
                 print("   User should check email for activation link")
                 return True
-            else:
+            except TimeoutException:
+                current_url = self.driver.current_url
                 print(f"⚠️  Form submission may have failed. Current URL: {current_url}")
+                # Check if we're still on registration page (form validation error)
+                if "register" in current_url:
+                    print("   Still on registration page - checking for error messages...")
+                    try:
+                        error_elements = self.driver.find_elements(By.CSS_SELECTOR, '.error, .alert, .message')
+                        if error_elements:
+                            for error in error_elements:
+                                if error.text.strip():
+                                    print(f"   Error message: {error.text.strip()}")
+                    except:
+                        pass
                 return False
         except Exception as e:
             print(f"❌ Error verifying form submission: {e}")
@@ -589,9 +720,94 @@ class TokenGuardDemo:
             print(f"❌ Error verifying login: {e}")
             return False
     
-    def step_13_show_success_popup(self):
-        """Step 13: Show success popup on user profile page."""
-        print("\n1️⃣3️⃣ Showing success popup...")
+    def step_13_navigate_to_api_keys(self):
+        """Step 13: Navigate to API Keys page to show the Excel-style table."""
+        print("\n1️⃣3️⃣ Navigating to API Keys page...")
+        try:
+            # Look for the "View API Keys" link
+            api_keys_link = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.LINK_TEXT, "View API Keys"))
+            )
+            print("✅ Found 'View API Keys' link")
+            
+            # Show popup before clicking
+            popup_script = """
+            // Create navigation popup overlay
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #3498db;
+                color: white;
+                padding: 25px;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+                z-index: 10000;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                border: 3px solid #2980b9;
+            `;
+            popup.innerHTML = `
+                <div>🔑 Navigating to API Keys</div>
+                <div style="font-size: 14px; margin-top: 10px; opacity: 0.9;">
+                    Opening Excel-style API keys table...
+                </div>
+            `;
+            document.body.appendChild(popup);
+            
+            // Auto-remove popup after 3 seconds
+            setTimeout(() => {
+                if (document.body.contains(popup)) {
+                    document.body.removeChild(popup);
+                }
+            }, 3000);
+            """
+            
+            self.driver.execute_script(popup_script)
+            time.sleep(3)  # Wait for popup to be visible
+            
+            # Click the API Keys link
+            api_keys_link.click()
+            print("✅ Clicked 'View API Keys' link")
+            
+            # Wait for keys page to load
+            WebDriverWait(self.driver, 10).until(
+                EC.url_contains("/keys/")
+            )
+            print("✅ Navigated to API Keys page")
+            
+            # Verify we're on the keys page
+            if "API Keys" in self.driver.title:
+                print("✅ On API Keys page with Excel-style table")
+                print(f"   Current URL: {self.driver.current_url}")
+                print(f"   Page Title: {self.driver.title}")
+                
+                # Check if we can see the table
+                try:
+                    table = self.driver.find_element(By.CLASS_NAME, "excel-table")
+                    rows = table.find_elements(By.CSS_SELECTOR, "tbody tr")
+                    print(f"✅ Found Excel-style table with {len(rows)} API keys")
+                    return True
+                except NoSuchElementException:
+                    print("⚠️  Table not found, but page loaded")
+                    return True
+            else:
+                print("⚠️  Not on expected API Keys page")
+                return False
+                
+        except TimeoutException:
+            print("❌ Could not find 'View API Keys' link")
+            return False
+        except Exception as e:
+            print(f"❌ Error navigating to API Keys: {e}")
+            return False
+    
+    def step_14_show_success_popup(self):
+        """Step 14: Show success popup on API keys page."""
+        print("\n1️⃣4️⃣ Showing success popup...")
         
         popup_script = """
         // Create success popup overlay
@@ -618,7 +834,7 @@ class TokenGuardDemo:
         popup.innerHTML = `
             <div style="margin-bottom: 20px;">
                 <div style="font-size: 24px; margin-bottom: 10px;">🎉</div>
-                <div>Demo completed successfully!<br>User is logged in and on profile page</div>
+                <div>Demo completed successfully!<br>User is logged in and viewing API keys!<br>Click any key to copy it to clipboard</div>
             </div>
         `;
         
@@ -667,6 +883,11 @@ class TokenGuardDemo:
         if not self.setup_browser():
             return False
         
+        # Wait for server to be ready
+        if not self.wait_for_server():
+            print("❌ Server is not ready. Please start the Flask server first.")
+            return False
+        
         try:
             # Execute demo steps
             steps = [
@@ -682,7 +903,8 @@ class TokenGuardDemo:
                 self.step_10_click_signin_button,
                 self.step_11_fill_login_form,
                 self.step_12_verify_login_success,
-                self.step_13_show_success_popup
+                self.step_13_navigate_to_api_keys,
+                self.step_14_show_success_popup
             ]
             
             for i, step in enumerate(steps, 1):

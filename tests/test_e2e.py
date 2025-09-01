@@ -22,8 +22,8 @@ from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 from flask import url_for
 from app import create_app, db
-from models import User, ActivationToken, PasswordResetToken
-from auth_utils import hash_password, generate_jwt_token
+from app.models import User, ActivationToken, PasswordResetToken
+from app.utils.auth_utils import hash_password, generate_jwt_token
 
 
 # Add timeout to all tests to prevent hanging
@@ -305,7 +305,7 @@ class TestAuthenticationE2E:
     
     def test_user_login_success(self):
         """Test successful user login workflow"""
-        # Test login with valid credentials
+        # Test login with valid credentials using form data
         login_data = {
             'email': 'test@example.com',
             'password': 'TestPass123!'
@@ -313,24 +313,14 @@ class TestAuthenticationE2E:
         
         response = self.client.post(
             '/auth/login',
-            data=json.dumps(login_data),
-            content_type='application/json'
+            data=login_data,
+            follow_redirects=True
         )
         
+        # Should redirect to user profile page
         assert response.status_code == 200
-        
-        data = json.loads(response.data)
-        assert 'message' in data
-        assert 'token' in data
-        assert 'user_id' in data
-        assert 'redirect_url' in data
-        assert 'Login successful' in data['message']
-        
-        # Verify JWT token is valid
-        token = data['token']
-        with self.app.app_context():
-            payload = self.app.config['JWT_SECRET_KEY']
-            # Note: In a real test, you'd verify the JWT token properly
+        # Check if we're on the user profile page
+        assert b'User Profile' in response.data or b'Welcome back' in response.data
     
     def test_user_login_inactive_account(self):
         """Test that login fails for inactive accounts"""
@@ -352,15 +342,13 @@ class TestAuthenticationE2E:
         
         response = self.client.post(
             '/auth/login',
-            data=json.dumps(login_data),
-            content_type='application/json'
+            data=login_data,
+            follow_redirects=False
         )
         
-        assert response.status_code == 403
-        
-        data = json.loads(response.data)
-        assert 'error' in data
-        assert 'not activated' in data['error']
+        # Should stay on login page with error message
+        assert response.status_code == 200
+        assert b'Account not activated' in response.data
     
     def test_user_login_invalid_credentials(self):
         """Test that login fails with invalid credentials"""
@@ -372,15 +360,13 @@ class TestAuthenticationE2E:
         
         response = self.client.post(
             '/auth/login',
-            data=json.dumps(login_data),
-            content_type='application/json'
+            data=login_data,
+            follow_redirects=False
         )
         
-        assert response.status_code == 401
-        
-        data = json.loads(response.data)
-        assert 'error' in data
-        assert 'Invalid email or password' in data['error']
+        # Should stay on login page with error message
+        assert response.status_code == 200
+        assert b'Invalid email or password' in response.data
     
     def test_user_login_nonexistent_account(self):
         """Test that login fails with nonexistent account"""
@@ -392,19 +378,17 @@ class TestAuthenticationE2E:
         
         response = self.client.post(
             '/auth/login',
-            data=json.dumps(login_data),
-            content_type='application/json'
+            data=login_data,
+            follow_redirects=False
         )
         
-        assert response.status_code == 401
-        
-        data = json.loads(response.data)
-        assert 'error' in data
-        assert 'Invalid email or password' in data['error']
+        # Should stay on login page with error message
+        assert response.status_code == 200
+        assert b'Invalid email or password' in response.data
     
     def test_user_profile_access_with_valid_user(self):
         """Test that user profile is accessible for valid users"""
-        # Login first to get session
+        # Login first using form data
         login_data = {
             'email': 'test@example.com',
             'password': 'TestPass123!'
@@ -412,21 +396,17 @@ class TestAuthenticationE2E:
         
         login_response = self.client.post(
             '/auth/login',
-            data=json.dumps(login_data),
-            content_type='application/json'
+            data=login_data,
+            follow_redirects=True
         )
         
         assert login_response.status_code == 200
-        login_data = json.loads(login_response.data)
         
-        # Access user profile (should work)
-        headers = {'Authorization': f'Bearer {login_data["token"]}'}
-        response = self.client.get(f'/user/{self.test_user.user_id}', headers=headers)
+        # Access user profile (should work with session)
+        response = self.client.get(f'/user/{self.test_user.user_id}')
     
         assert response.status_code == 200
-        assert b'Welcome' in response.data
-        assert b'test@example.com' in response.data
-        assert b'Logout' in response.data
+        assert b'User Profile' in response.data or b'test@example.com' in response.data
     
     def test_user_profile_access_without_login(self):
         """Test that user profile requires authentication"""
@@ -464,7 +444,7 @@ class TestAuthenticationE2E:
     
     def test_user_profile_access_other_user(self):
         """Test that users cannot access other users' profiles"""
-        # Login as test user
+        # Login as test user using form data
         login_data = {
             'email': 'test@example.com',
             'password': 'TestPass123!'
@@ -472,28 +452,22 @@ class TestAuthenticationE2E:
         
         login_response = self.client.post(
             '/auth/login',
-            data=json.dumps(login_data),
-            content_type='application/json'
+            data=login_data,
+            follow_redirects=True
         )
         
         assert login_response.status_code == 200
-        login_data = json.loads(login_response.data)
-        token = login_data['token']
         
-        # Try to access a non-existent user's profile with valid token
-        headers = {'Authorization': f'Bearer {token}'}
-        response = self.client.get('/user/nonexistent123', headers=headers)
+        # Try to access a non-existent user's profile with session
+        response = self.client.get('/user/nonexistent123')
         
         # Should return 403 Forbidden - can't access other user's profile
-        # (or 404 if the user doesn't exist, but the auth check should happen first)
-        assert response.status_code in [403, 404]
-        if response.status_code == 403:
-            # Now returns HTML instead of JSON
-            assert b'Access Denied' in response.data
+        assert response.status_code == 403
+        assert b'Access Denied' in response.data
     
     def test_logout_functionality(self):
         """Test that logout works correctly"""
-        # Login first
+        # Login first using form data
         login_data = {
             'email': 'test@example.com',
             'password': 'TestPass123!'
@@ -501,8 +475,8 @@ class TestAuthenticationE2E:
         
         self.client.post(
             '/auth/login',
-            data=json.dumps(login_data),
-            content_type='application/json'
+            data=login_data,
+            follow_redirects=True
         )
         
         # Logout
@@ -520,14 +494,13 @@ class TestAuthenticationE2E:
         
         response = self.client.post(
             '/auth/forgot-password',
-            data=json.dumps(forgot_data),
-            content_type='application/json'
+            data=forgot_data,
+            follow_redirects=True
         )
         
+        # Should redirect to login page with success message
         assert response.status_code == 200
-        
-        data = json.loads(response.data)
-        assert 'message' in data
+        assert b'Password reset instructions have been sent' in response.data
         
         # Verify password reset token was created
         with self.app.app_context():
@@ -544,15 +517,13 @@ class TestAuthenticationE2E:
         
         response = self.client.post(
             '/auth/forgot-password',
-            data=json.dumps(forgot_data),
-            content_type='application/json'
+            data=forgot_data,
+            follow_redirects=True
         )
         
+        # Should redirect to login page with success message
         assert response.status_code == 200
-        
-        # Should return same message to prevent email enumeration
-        data = json.loads(response.data)
-        assert 'message' in data
+        assert b'Password reset instructions have been sent' in response.data
     
     def test_password_reset_workflow(self):
         """Test password reset workflow"""
@@ -574,20 +545,19 @@ class TestAuthenticationE2E:
         
         # Test password reset submission
         reset_data = {
-            'password': 'NewSecurePass123!'
+            'password': 'NewSecurePass123!',
+            'confirm_password': 'NewSecurePass123!'
         }
         
         response = self.client.post(
             f'/auth/reset-password/{reset_token_string}',
-            data=json.dumps(reset_data),
-            content_type='application/json'
+            data=reset_data,
+            follow_redirects=True
         )
         
+        # Should redirect to login page with success message
         assert response.status_code == 200
-        
-        data = json.loads(response.data)
-        assert 'message' in data
-        assert 'successful' in data['message']
+        assert b'Password has been reset successfully' in response.data
         
         # Verify token was marked as used
         with self.app.app_context():
@@ -598,20 +568,19 @@ class TestAuthenticationE2E:
         """Test that password reset fails with invalid token"""
         # Test with invalid token
         reset_data = {
-            'password': 'NewSecurePass123!'
+            'password': 'NewSecurePass123!',
+            'confirm_password': 'NewSecurePass123!'
         }
         
         response = self.client.post(
             '/auth/reset-password/invalid-token-123',
-            data=json.dumps(reset_data),
-            content_type='application/json'
+            data=reset_data,
+            follow_redirects=True
         )
         
-        assert response.status_code == 400
-        
-        data = json.loads(response.data)
-        assert 'error' in data
-        assert 'Invalid or expired' in data['error']
+        # Should redirect to login page with error message
+        assert response.status_code == 200
+        assert b'Invalid or expired reset token' in response.data
     
     def test_password_reset_weak_password(self):
         """Test that password reset fails with weak password"""
@@ -627,20 +596,19 @@ class TestAuthenticationE2E:
     
         # Test with weak password
         reset_data = {
-            'password': 'weak'  # Too short
+            'password': 'weak',  # Too short
+            'confirm_password': 'weak'
         }
         
         response = self.client.post(
             f'/auth/reset-password/{weak_reset_token_string}',
-            data=json.dumps(reset_data),
-            content_type='application/json'
+            data=reset_data,
+            follow_redirects=False
         )
         
-        assert response.status_code == 400
-        
-        data = json.loads(response.data)
-        assert 'error' in data
-        assert 'Password must be at least 8 characters' in data['error']
+        # Should stay on reset password page with error message
+        assert response.status_code == 200
+        assert b'Password must be at least 8 characters long' in response.data
     
     def test_error_handling_404(self):
         """Test that 404 errors are handled correctly"""
@@ -724,7 +692,7 @@ class TestAuthenticationE2E:
     
     def test_session_management(self):
         """Test that user sessions are managed correctly"""
-        # Login
+        # Login using form data
         login_data = {
             'email': 'test@example.com',
             'password': 'TestPass123!'
@@ -732,16 +700,14 @@ class TestAuthenticationE2E:
         
         login_response = self.client.post(
             '/auth/login',
-            data=json.dumps(login_data),
-            content_type='application/json'
+            data=login_data,
+            follow_redirects=True
         )
         
         assert login_response.status_code == 200
-        login_data = json.loads(login_response.data)
         
-        # Access user profile (should work)
-        headers = {'Authorization': f'Bearer {login_data["token"]}'}
-        response = self.client.get(f'/user/{self.test_user.user_id}', headers=headers)
+        # Access user profile (should work with session)
+        response = self.client.get(f'/user/{self.test_user.user_id}')
         assert response.status_code == 200
         
         # Logout

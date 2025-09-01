@@ -11,8 +11,12 @@ This module contains unit tests for the API key management system including:
 
 import pytest
 from datetime import datetime, timedelta
-from models import db, User, APIKey, create_default_api_key, generate_api_key_name, generate_api_key_value
-from auth_utils import hash_password
+from app.models import db, User, APIKey
+from app.models.utils import generate_api_key_name, generate_api_key_value
+from app.utils.auth_utils import hash_password
+
+# Import the function from the APIKey model class
+create_default_api_key = APIKey.create_default_api_keys
 
 
 class TestAPIKeyGeneration:

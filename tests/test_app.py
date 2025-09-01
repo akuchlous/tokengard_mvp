@@ -1,11 +1,29 @@
 import pytest
-from app import app
+from app import create_app
 
 @pytest.fixture
-def client():
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
+def app():
+    """Create and configure a new app instance for each test."""
+    app = create_app({
+        'TESTING': True,
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'SECRET_KEY': 'test-secret-key',
+        'JWT_SECRET_KEY': 'test-jwt-secret-key',
+        'MAIL_SERVER': 'localhost',
+        'MAIL_PORT': 587,
+        'MAIL_USE_TLS': False,
+        'MAIL_USE_SSL': False,
+        'MAIL_USERNAME': 'test@example.com',
+        'MAIL_PASSWORD': 'test-password',
+        'MAIL_DEFAULT_SENDER': 'test@example.com',
+        'WTF_CSRF_ENABLED': False
+    })
+    return app
+
+@pytest.fixture
+def client(app):
+    """Create a test client for the app."""
+    return app.test_client()
 
 def test_home_page(client):
     """Test that the home page loads successfully"""

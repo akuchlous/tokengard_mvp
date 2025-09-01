@@ -1,69 +1,104 @@
 {% extends "base.html" %}
 
 {% block title %}API Keys - {{ user.email }}{% endblock %}
-{% block body_class %}auth-page{% endblock %}
+{% block body_class %}keys-page{% endblock %}
 
 {% block content %}
-<div class="auth-card">
-    <div class="auth-header">
-        <h1>🔑 Your API Keys</h1>
-        <p>Manage the keys associated with your account</p>
+<div class="keys-container">
+    <!-- Header Section -->
+    <div class="keys-header">
+        <div class="header-content">
+            <h1>🔑 API Keys Management</h1>
+            <div class="user-info">
+                <span class="user-email">{{ user.email }}</span>
+                <span class="user-id">ID: {{ user.user_id }}</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('main.user_profile', user_id=user.user_id) }}" class="btn btn-secondary">Back to Profile</a>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-primary">Logout</a>
+        </div>
     </div>
 
-    <div class="profile-info">
-        <div class="info-item">
-            <span class="info-label">User:</span>
-            <span class="info-value">{{ user.email }}</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">User ID:</span>
-            <span class="info-value">{{ user.user_id }}</span>
-        </div>
-    </div>
-
-    <div class="api-keys-section">
-        <div class="section-header">
-            <h2>API Keys</h2>
-        </div>
-
+    <!-- Excel-style Table Section -->
+    <div class="excel-table-container">
         {% if api_keys and api_keys|length > 0 %}
-            <div class="api-keys-table-container">
-                <table class="api-keys-table">
+            <div class="table-toolbar">
+                <div class="table-info">
+                    <span class="record-count">{{ api_keys|length }} API Keys</span>
+                    <span class="help-text">💡 Click on any key to copy it to clipboard</span>
+                </div>
+            </div>
+            
+            <div class="excel-table-wrapper">
+                <table class="excel-table">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Key</th>
-                            <th>Activation Date</th>
-                            <th>State</th>
-                            <th>Actions</th>
+                            <th class="col-index">#</th>
+                            <th class="col-name">Key Name</th>
+                            <th class="col-key">API Key</th>
+                            <th class="col-created">Created Date</th>
+                            <th class="col-last-used">Last Used</th>
+                            <th class="col-status">Status</th>
+                            <th class="col-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for key in api_keys %}
-                            <tr>
-                                <td class="key-name">{{ key.key_name }}</td>
-                                <td class="key-value">
-                                    <code>{{ key.key_value }}</code>
+                            <tr class="data-row" data-key-id="{{ key.id }}">
+                                <td class="col-index">{{ loop.index }}</td>
+                                <td class="col-name">
+                                    <div class="key-name-cell">
+                                        <span class="key-icon">🔑</span>
+                                        <span class="key-name">{{ key.key_name }}</span>
+                                    </div>
                                 </td>
-                                <td class="key-date">
-                                    {{ key.created_at.strftime('%b %d, %Y') if key.created_at else '—' }}
+                                <td class="col-key">
+                                    <div class="key-value-cell clickable-key" 
+                                         data-key="{{ key.key_value }}" 
+                                         title="Click to copy API key">
+                                        <code class="api-key-code">{{ key.key_value }}</code>
+                                        <span class="copy-icon">📋</span>
+                                        <span class="copy-feedback">Copied!</span>
+                                    </div>
                                 </td>
-                                <td class="key-state">
-                                    <span class="status-badge {{ key.state.lower() }}">
-                                        {{ key.state.upper() }}
-                                    </span>
+                                <td class="col-created">
+                                    <div class="date-cell">
+                                        <span class="date-main">{{ key.created_at.strftime('%b %d, %Y') if key.created_at else '—' }}</span>
+                                        <span class="date-time">{{ key.created_at.strftime('%H:%M') if key.created_at else '' }}</span>
+                                    </div>
                                 </td>
-                                <td class="key-actions">
-                                    {% if key.state.lower() == 'enabled' %}
-                                        <form method="POST" action="{{ url_for('deactivate_key', key_id=key.id) }}" style="display: inline;">
-                                            <button type="submit" class="btn btn-sm btn-warning" 
-                                                    onclick="return confirm('Are you sure you want to deactivate this API key?')">
-                                                Deactivate
-                                            </button>
-                                        </form>
-                                    {% else %}
-                                        <span class="text-muted">—</span>
-                                    {% endif %}
+                                <td class="col-last-used">
+                                    <div class="date-cell">
+                                        {% if key.last_used %}
+                                            <span class="date-main">{{ key.last_used.strftime('%b %d, %Y') }}</span>
+                                            <span class="date-time">{{ key.last_used.strftime('%H:%M') }}</span>
+                                        {% else %}
+                                            <span class="never-used">Never used</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="col-status">
+                                    <div class="status-cell">
+                                        <span class="status-indicator {{ key.state.lower() }}"></span>
+                                        <span class="status-text">{{ key.state.upper() }}</span>
+                                    </div>
+                                </td>
+                                <td class="col-actions">
+                                    <div class="actions-cell">
+                                        {% if key.state.lower() == 'enabled' %}
+                                            <form method="POST" action="{{ url_for('main.deactivate_key', key_id=key.id) }}" class="inline-form">
+                                                <button type="submit" class="action-btn deactivate-btn" 
+                                                        onclick="return confirm('Are you sure you want to deactivate {{ key.key_name }}?')"
+                                                        title="Deactivate this API key">
+                                                    <span class="btn-icon">🚫</span>
+                                                    <span class="btn-text">Deactivate</span>
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <span class="disabled-action">—</span>
+                                        {% endif %}
+                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -71,18 +106,78 @@
                 </table>
             </div>
         {% else %}
-            <div class="no-keys">No API keys yet.</div>
+            <div class="no-keys-message">
+                <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    <h3>No API Keys Found</h3>
+                    <p>Your API keys will appear here once your account is activated.</p>
+                </div>
+            </div>
         {% endif %}
     </div>
 
-    <div class="auth-footer">
-        <p>
-            <a href="{{ url_for('user_profile', user_id=user.user_id) }}" class="btn btn-secondary">Back to Profile</a>
-            <a href="{{ url_for('auth.logout') }}" class="btn btn-primary">Logout</a>
-        </p>
-        <p><a href="{{ url_for('home') }}" class="home-link">← Back to Home</a></p>
+    <!-- Footer -->
+    <div class="keys-footer">
+        <p><a href="{{ url_for('main.home') }}" class="home-link">← Back to Home</a></p>
     </div>
 </div>
+
+<!-- Copy to Clipboard JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add click-to-copy functionality
+    const clickableKeys = document.querySelectorAll('.clickable-key');
+    
+    clickableKeys.forEach(function(keyElement) {
+        keyElement.addEventListener('click', function() {
+            const apiKey = this.getAttribute('data-key');
+            const feedback = this.querySelector('.copy-feedback');
+            
+            // Copy to clipboard
+            if (navigator.clipboard && window.isSecureContext) {
+                // Modern async clipboard API
+                navigator.clipboard.writeText(apiKey).then(function() {
+                    showCopyFeedback(feedback);
+                }).catch(function(err) {
+                    console.error('Failed to copy: ', err);
+                    fallbackCopy(apiKey, feedback);
+                });
+            } else {
+                // Fallback for older browsers
+                fallbackCopy(apiKey, feedback);
+            }
+        });
+    });
+    
+    function showCopyFeedback(feedbackElement) {
+        feedbackElement.classList.add('show');
+        setTimeout(function() {
+            feedbackElement.classList.remove('show');
+        }, 2000);
+    }
+    
+    function fallbackCopy(text, feedbackElement) {
+        // Create a temporary textarea element
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            showCopyFeedback(feedbackElement);
+        } catch (err) {
+            console.error('Fallback copy failed: ', err);
+        }
+        
+        document.body.removeChild(textArea);
+    }
+});
+</script>
 {% endblock %}
 
 
