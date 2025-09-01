@@ -966,6 +966,7 @@ class TokenGuardDemo:
                 
                 # Handle confirmation alert if it appears
                 try:
+                    WebDriverWait(self.driver, 3).until(EC.alert_is_present())
                     alert = self.driver.switch_to.alert
                     alert.accept()  # Accept the confirmation
                     print("✅ Accepted deactivation confirmation")
@@ -988,6 +989,16 @@ class TokenGuardDemo:
         """Step 18: Test the disabled key again."""
         print("\n1️⃣8️⃣ Testing the disabled key...")
         try:
+            # Handle any pending alerts first
+            try:
+                WebDriverWait(self.driver, 2).until(EC.alert_is_present())
+                alert = self.driver.switch_to.alert
+                alert.accept()  # Accept any pending confirmation
+                print("✅ Accepted any pending confirmation alert")
+                time.sleep(1)
+            except:
+                print("   No pending alerts found")
+            
             # Find the first test button again (should be for the disabled key)
             test_buttons = self.driver.find_elements(By.CSS_SELECTOR, '.test-btn')
             if test_buttons:
