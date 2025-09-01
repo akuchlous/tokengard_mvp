@@ -805,73 +805,165 @@ class TokenGuardDemo:
             print(f"❌ Error navigating to API Keys: {e}")
             return False
     
-    def step_14_show_success_popup(self):
-        """Step 14: Show success popup on API keys page."""
-        print("\n1️⃣4️⃣ Showing success popup...")
-        
-        popup_script = """
-        // Create success popup overlay
-        const popup = document.createElement('div');
-        popup.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #27ae60;
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            font-size: 18px;
-            font-weight: bold;
-            z-index: 10000;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            animation: fadeIn 0.3s ease-in;
-            text-align: center;
-            max-width: 400px;
-            min-width: 350px;
-        `;
-        
-        popup.innerHTML = `
-            <div style="margin-bottom: 20px;">
-                <div style="font-size: 24px; margin-bottom: 10px;">🎉</div>
-                <div>Demo completed successfully!<br>User is logged in and viewing API keys!<br>Click any key to copy it to clipboard</div>
-            </div>
-        `;
-        
-        // Add to page
-        document.body.appendChild(popup);
-        
-        // Add dismiss functionality
-        const dismissBtn = document.getElementById('dismissBtn');
-        dismissBtn.addEventListener('click', function() {
-            popup.style.animation = 'fadeOut 0.3s ease-out';
-            setTimeout(() => {
-                if (popup.parentNode) {
-                    popup.parentNode.removeChild(popup);
-                }
-            }, 300);
-        });
-        
-        // Auto-destruct in 5 seconds
-        setTimeout(() => {
-            if (popup.parentNode) {
-                popup.style.animation = 'fadeOut 0.3s ease-out';
-                setTimeout(() => {
-                    if (popup.parentNode) {
-                        popup.parentNode.removeChild(popup);
-                    }
-                }, 300);
-            }
-        }, 5000);
-        """
-        
+    def step_14_click_test_first_key(self):
+        """Step 14: Click on test button for the first API key."""
+        print("\n1️⃣4️⃣ Clicking test button for first API key...")
         try:
-            self.driver.execute_script(popup_script)
-            print("✅ Success popup displayed!")
-            print("   Popup will auto-destruct in 5 seconds, or click 'Dismiss'")
-            return True
+            # Wait for the table to be loaded
+            time.sleep(2)
+            
+            # Find the first test button in the table
+            test_buttons = self.driver.find_elements(By.CSS_SELECTOR, '.test-btn')
+            if test_buttons:
+                first_test_button = test_buttons[0]
+                print("✅ Found first test button")
+                
+                # Click the test button
+                first_test_button.click()
+                print("✅ Clicked first test button")
+                
+                # Wait for navigation to test page
+                WebDriverWait(self.driver, 10).until(
+                    EC.url_contains("/test/")
+                )
+                print("✅ Navigated to test page")
+                print(f"   Current URL: {self.driver.current_url}")
+                return True
+            else:
+                print("❌ Could not find test buttons")
+                return False
+                
         except Exception as e:
-            print(f"⚠️  Could not show success popup: {e}")
+            print(f"❌ Error clicking test button: {e}")
+            return False
+    
+    def step_15_test_key_twice(self):
+        """Step 15: Test API key twice with different payloads."""
+        print("\n1️⃣5️⃣ Testing API key twice with different payloads...")
+        try:
+            # Wait for test page to load
+            time.sleep(2)
+            
+            # First test with default payload
+            print("   Testing with first payload...")
+            payload_textarea = self.driver.find_element(By.ID, 'payload')
+            test_button = self.driver.find_element(By.ID, 'testBtn')
+            
+            # Clear and set first payload
+            payload_textarea.clear()
+            payload_textarea.send_keys('{"message": "First test", "data": {"test": 1}}')
+            test_button.click()
+            
+            # Wait for results
+            time.sleep(3)
+            print("✅ First test completed")
+            
+            # Second test with different payload
+            print("   Testing with second payload...")
+            payload_textarea.clear()
+            payload_textarea.send_keys('{"message": "Second test", "data": {"test": 2, "timestamp": "' + str(int(time.time())) + '"}}')
+            test_button.click()
+            
+            # Wait for results
+            time.sleep(3)
+            print("✅ Second test completed")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error testing API key: {e}")
+            return False
+    
+    def step_16_go_back_to_keys(self):
+        """Step 16: Go back to keys page."""
+        print("\n1️⃣6️⃣ Going back to keys page...")
+        try:
+            # Find and click the back to keys button
+            back_button = self.driver.find_element(By.LINK_TEXT, "← Back to Keys")
+            back_button.click()
+            print("✅ Clicked back to keys button")
+            
+            # Wait for navigation
+            WebDriverWait(self.driver, 10).until(
+                EC.url_contains("/keys/")
+            )
+            print("✅ Navigated back to keys page")
+            print(f"   Current URL: {self.driver.current_url}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error going back to keys: {e}")
+            return False
+    
+    def step_17_disable_first_key(self):
+        """Step 17: Disable the first API key."""
+        print("\n1️⃣7️⃣ Disabling the first API key...")
+        try:
+            # Wait for page to load
+            time.sleep(2)
+            
+            # Find the first deactivate button
+            deactivate_buttons = self.driver.find_elements(By.CSS_SELECTOR, 'button[onclick*="deactivate"]')
+            if deactivate_buttons:
+                first_deactivate_button = deactivate_buttons[0]
+                print("✅ Found first deactivate button")
+                
+                # Click the deactivate button
+                first_deactivate_button.click()
+                print("✅ Clicked deactivate button")
+                
+                # Wait for the action to complete
+                time.sleep(2)
+                print("✅ First key disabled")
+                return True
+            else:
+                print("❌ Could not find deactivate buttons")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error disabling key: {e}")
+            return False
+    
+    def step_18_test_disabled_key(self):
+        """Step 18: Test the disabled key again."""
+        print("\n1️⃣8️⃣ Testing the disabled key...")
+        try:
+            # Find the first test button again (should be for the disabled key)
+            test_buttons = self.driver.find_elements(By.CSS_SELECTOR, '.test-btn')
+            if test_buttons:
+                first_test_button = test_buttons[0]
+                print("✅ Found test button for disabled key")
+                
+                # Click the test button
+                first_test_button.click()
+                print("✅ Clicked test button for disabled key")
+                
+                # Wait for navigation to test page
+                WebDriverWait(self.driver, 10).until(
+                    EC.url_contains("/test/")
+                )
+                print("✅ Navigated to test page for disabled key")
+                
+                # Test the disabled key
+                time.sleep(2)
+                payload_textarea = self.driver.find_element(By.ID, 'payload')
+                test_button = self.driver.find_element(By.ID, 'testBtn')
+                
+                # Set test payload
+                payload_textarea.clear()
+                payload_textarea.send_keys('{"message": "Testing disabled key", "data": {"test": "disabled"}}')
+                test_button.click()
+                
+                # Wait for results
+                time.sleep(3)
+                print("✅ Disabled key test completed (should show error)")
+                return True
+            else:
+                print("❌ Could not find test buttons")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error testing disabled key: {e}")
             return False
     
     def run_demo(self):
@@ -904,7 +996,11 @@ class TokenGuardDemo:
                 self.step_11_fill_login_form,
                 self.step_12_verify_login_success,
                 self.step_13_navigate_to_api_keys,
-                self.step_14_show_success_popup
+                self.step_14_click_test_first_key,
+                self.step_15_test_key_twice,
+                self.step_16_go_back_to_keys,
+                self.step_17_disable_first_key,
+                self.step_18_test_disabled_key
             ]
             
             for i, step in enumerate(steps, 1):
@@ -912,12 +1008,13 @@ class TokenGuardDemo:
                     print(f"⚠️  Step {i} failed, but continuing...")
             
             print("\n🎉 Demo completed successfully!")
+            print("The demo has shown:")
+            print("  ✅ User registration and activation")
+            print("  ✅ Login and navigation to API keys")
+            print("  ✅ API key testing with different payloads")
+            print("  ✅ Key disabling and testing disabled keys")
             print("The browser is open for you to explore.")
-            print("You can:")
-            print("  - Navigate to different pages")
-            print("  - Test the application")
-            print("  - Explore the user interface")
-            print("  - Press 'q' + Enter in this terminal to close the browser and exit")
+            print("Press 'q' + Enter in this terminal to close the browser and exit")
             
             return True
             
