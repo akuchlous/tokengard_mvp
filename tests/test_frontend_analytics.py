@@ -138,9 +138,15 @@ class TestFrontendAnalytics:
     
     def start_flask_server(self):
         """Start Flask server for testing."""
+        # Create a temporary database file for the server
+        import tempfile
+        self.temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        self.temp_db.close()
+        
         # Set environment variables for test server
         os.environ['FLASK_ENV'] = 'testing'
         os.environ['FLASK_APP'] = 'app:create_app'
+        os.environ['DATABASE_URL'] = f'sqlite:///{self.temp_db.name}'
         
         # Start Flask server in background
         self.server_process = subprocess.Popen(
@@ -157,6 +163,8 @@ class TestFrontendAnalytics:
                 response = requests.get('http://localhost:5001/health', timeout=2)
                 if response.status_code == 200:
                     print("✅ Flask server started successfully")
+                    # Set up test data in the running server
+                    self.setup_server_test_data()
                     return True
             except requests.exceptions.RequestException:
                 pass
@@ -164,6 +172,88 @@ class TestFrontendAnalytics:
         
         print("❌ Failed to start Flask server")
         return False
+    
+    def setup_server_test_data(self):
+        """Set up test data in the running server via direct database access."""
+        try:
+            from app import create_app, db
+            from app.models import User, APIKey, ProxyLog
+            from app.utils.auth_utils import hash_password
+            
+            # Create app with the same database
+            server_app = create_app({
+                'TESTING': True,
+                'SQLALCHEMY_DATABASE_URI': f'sqlite:///{self.temp_db.name}',
+                'SECRET_KEY': 'test-secret-key',
+                'JWT_SECRET_KEY': 'test-jwt-secret-key'
+            })
+            
+            with server_app.app_context():
+                # Create all database tables
+                db.create_all()
+                
+                # Create user if not exists
+                user = User.query.filter_by(email='analytics@example.com').first()
+                if not user:
+                    user = User(
+                        email='analytics@example.com',
+                        password_hash=hash_password('TestPass123!')
+                    )
+                    user.status = 'active'  # Activate user
+                    db.session.add(user)
+                    db.session.commit()
+                
+                # Create API keys
+                api_key1 = APIKey(
+                    user_id=user.id,
+                    key_name='key_0',
+                    key_value='tk-analytics123456789012345678901234'
+                )
+                db.session.add(api_key1)
+                
+                api_key2 = APIKey(
+                    user_id=user.id,
+                    key_name='key_1',
+                    key_value='tk-analytics234567890123456789012345'
+                )
+                db.session.add(api_key2)
+                db.session.commit()
+                
+                # Create sample log entries
+                for i in range(5):
+                    log = ProxyLog.create_log(
+                        api_key=api_key1,
+                        request_body=f'{{"test": "success_{i}", "data": "sample_data"}}',
+                        response_status='key_pass',
+                        response_body='{"status": "success", "message": "API key is valid"}',
+                        client_ip='127.0.0.1',
+                        user_agent='test-agent',
+                        request_id=f'test-request-{i}',
+                        processing_time_ms=100 + i * 10
+                    )
+                    db.session.commit()
+                    time.sleep(0.01)
+                
+                for i in range(3):
+                    log = ProxyLog.create_log(
+                        api_key=api_key2,
+                        request_body=f'{{"test": "error_{i}", "data": "sample_data"}}',
+                        response_status='key_error',
+                        response_body='{"status": "error", "message": "API key is invalid"}',
+                        client_ip='127.0.0.1',
+                        user_agent='test-agent',
+                        request_id=f'test-error-{i}',
+                        processing_time_ms=50 + i * 5
+                    )
+                    db.session.commit()
+                    time.sleep(0.01)
+                
+                print("✅ Test data set up in server")
+                
+        except Exception as e:
+            print(f"Warning: Failed to set up test data: {e}")
+            import traceback
+            traceback.print_exc()
     
     def stop_flask_server(self):
         """Stop Flask server."""
@@ -178,6 +268,13 @@ class TestFrontendAnalytics:
                     print("✅ Flask server force stopped")
                 except ProcessLookupError:
                     pass
+        
+        # Clean up temporary database file
+        if hasattr(self, 'temp_db'):
+            try:
+                os.unlink(self.temp_db.name)
+            except OSError:
+                pass
     
     def login_user(self, driver, base_url):
         """Login user and return to home page."""

@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+
+{% block title %}Test API Key - TokenGuard{% endblock %}
+{% block body_class %}test-page{% endblock %}
+
+{% block content %}
+<div class="test-container">
+    <!-- Header Section -->
+    <div class="test-header">
+        <div class="header-content">
+            <h1>🧪 API Key Tester</h1>
+            <div class="key-info">
+                <span class="key-label">Testing Key:</span>
+                <code class="api-key-display">{{ key_value }}</code>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('main.user_keys', user_id=user.user_id) }}" class="btn btn-secondary">← Back to Keys</a>
+            <a href="{{ url_for('main.user_profile', user_id=user.user_id) }}" class="btn btn-secondary">Profile</a>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-primary">Logout</a>
+        </div>
+    </div>
+
+    <!-- Test Form Section -->
+    <div class="test-form-section">
+        <div class="form-container">
+            <h2>Test Your API Key</h2>
+            <p class="form-description">
+                Enter a JSON payload to test against the proxy endpoint. The API key will be automatically included in the request.
+            </p>
+            
+            <form id="testForm" class="test-form">
+                <div class="form-group">
+                    <label for="payload" class="form-label">Request Payload (JSON)</label>
+                    <textarea id="payload" name="payload" class="form-textarea" rows="8" 
+                              placeholder='{"message": "Hello, API!", "data": {"test": true}}'>{"message": "Hello, API!", "data": {"test": true}}</textarea>
+                    <div class="form-help">Enter valid JSON data to send to the proxy endpoint</div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg" id="testBtn">
+                        <span class="btn-text">Test API Key</span>
+                        <span class="btn-loading" style="display: none;">Testing...</span>
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="clearBtn">Clear</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="results-section" id="resultsSection" style="display: none;">
+        <div class="results-container">
+            <h3>Test Results</h3>
+            <div class="result-item">
+                <div class="result-label">Status Code:</div>
+                <div class="result-value" id="statusCode">—</div>
+            </div>
+            <div class="result-item">
+                <div class="result-label">Response:</div>
+                <div class="result-value" id="responseBody">—</div>
+            </div>
+            <div class="result-item">
+                <div class="result-label">Processing Time:</div>
+                <div class="result-value" id="processingTime">—</div>
+            </div>
+            <div class="result-item">
+                <div class="result-label">Timestamp:</div>
+                <div class="result-value" id="timestamp">—</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Section -->
+    <div class="error-section" id="errorSection" style="display: none;">
+        <div class="error-container">
+            <h3>❌ Test Failed</h3>
+            <div class="error-message" id="errorMessage">—</div>
+        </div>
+    </div>
+</div>
+
+<!-- Test API Key JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const testForm = document.getElementById('testForm');
+    const testBtn = document.getElementById('testBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const payloadTextarea = document.getElementById('payload');
+    const resultsSection = document.getElementById('resultsSection');
+    const errorSection = document.getElementById('errorSection');
+    
+    // Clear button functionality
+    clearBtn.addEventListener('click', function() {
+        payloadTextarea.value = '';
+        resultsSection.style.display = 'none';
+        errorSection.style.display = 'none';
+    });
+    
+    // Form submission
+    testForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const payload = payloadTextarea.value.trim();
+        if (!payload) {
+            showError('Please enter a JSON payload to test');
+            return;
+        }
+        
+        // Validate JSON
+        try {
+            JSON.parse(payload);
+        } catch (error) {
+            showError('Invalid JSON format: ' + error.message);
+            return;
+        }
+        
+        // Show loading state
+        testBtn.querySelector('.btn-text').style.display = 'none';
+        testBtn.querySelector('.btn-loading').style.display = 'inline';
+        testBtn.disabled = true;
+        
+        // Hide previous results
+        resultsSection.style.display = 'none';
+        errorSection.style.display = 'none';
+        
+        try {
+            const response = await fetch('/api/proxy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': '{{ key_value }}'
+                },
+                body: payload
+            });
+            
+            const responseData = await response.text();
+            const startTime = Date.now();
+            
+            // Parse response if it's JSON
+            let parsedResponse;
+            try {
+                parsedResponse = JSON.parse(responseData);
+            } catch {
+                parsedResponse = responseData;
+            }
+            
+            const endTime = Date.now();
+            const processingTime = endTime - startTime;
+            
+            // Show results
+            showResults(response.status, parsedResponse, processingTime);
+            
+        } catch (error) {
+            showError('Network error: ' + error.message);
+        } finally {
+            // Reset button state
+            testBtn.querySelector('.btn-text').style.display = 'inline';
+            testBtn.querySelector('.btn-loading').style.display = 'none';
+            testBtn.disabled = false;
+        }
+    });
+    
+    function showResults(statusCode, response, processingTime) {
+        document.getElementById('statusCode').textContent = statusCode;
+        document.getElementById('responseBody').innerHTML = formatResponse(response);
+        document.getElementById('processingTime').textContent = processingTime + 'ms';
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        
+        resultsSection.style.display = 'block';
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function showError(message) {
+        document.getElementById('errorMessage').textContent = message;
+        errorSection.style.display = 'block';
+        errorSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    function formatResponse(response) {
+        if (typeof response === 'object') {
+            return '<pre>' + JSON.stringify(response, null, 2) + '</pre>';
+        } else {
+            return '<pre>' + response + '</pre>';
+        }
+    }
+});
+</script>
+
+<style>
+.test-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.test-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.header-content h1 {
+    margin: 0 0 10px 0;
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.key-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.key-label {
+    opacity: 0.9;
+}
+
+.api-key-display {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    word-break: break-all;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.test-form-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.form-container {
+    padding: 30px;
+}
+
+.form-container h2 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 1.8rem;
+}
+
+.form-description {
+    color: #666;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.test-form {
+    max-width: 800px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-textarea {
+    width: 100%;
+    padding: 15px;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 200px;
+    transition: border-color 0.3s ease;
+}
+
+.form-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-help {
+    margin-top: 5px;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5a6fd8;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-1px);
+}
+
+.btn-lg {
+    padding: 15px 30px;
+    font-size: 1.1rem;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.results-section, .error-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.results-container, .error-container {
+    padding: 30px;
+}
+
+.results-container h3 {
+    margin: 0 0 20px 0;
+    color: #28a745;
+    font-size: 1.5rem;
+}
+
+.error-container h3 {
+    margin: 0 0 20px 0;
+    color: #dc3545;
+    font-size: 1.5rem;
+}
+
+.result-item {
+    display: flex;
+    margin-bottom: 15px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.result-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.result-label {
+    font-weight: 600;
+    color: #333;
+    min-width: 150px;
+    margin-right: 20px;
+}
+
+.result-value {
+    flex: 1;
+    color: #666;
+    word-break: break-word;
+}
+
+.result-value pre {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 0;
+    overflow-x: auto;
+    font-size: 0.9rem;
+}
+
+.error-message {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #f5c6cb;
+}
+
+@media (max-width: 768px) {
+    .test-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .header-actions {
+        justify-content: center;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .result-item {
+        flex-direction: column;
+    }
+    
+    .result-label {
+        margin-bottom: 5px;
+        min-width: auto;
+    }
+}
+</style>
+{% endblock %}

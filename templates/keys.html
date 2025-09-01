@@ -41,6 +41,7 @@
                             <th class="col-last-used">Last Used</th>
                             <th class="col-status">Status</th>
                             <th class="col-actions">Actions</th>
+                            <th class="col-test">Test</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -98,6 +99,16 @@
                                         {% else %}
                                             <span class="disabled-action">—</span>
                                         {% endif %}
+                                    </div>
+                                </td>
+                                <td class="col-test">
+                                    <div class="test-cell">
+                                        <a href="{{ url_for('main.test_key', key_value=key.key_value) }}" 
+                                           class="test-btn" 
+                                           title="Test this API key">
+                                            <span class="btn-icon">🧪</span>
+                                            <span class="btn-text">Test</span>
+                                        </a>
                                     </div>
                                 </td>
                             </tr>

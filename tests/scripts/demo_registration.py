@@ -926,43 +926,18 @@ class TokenGuardDemo:
             return False
     
     def wait_for_user_input(self):
-        """Wait for user to press 'q' to quit or auto-quit after 10 seconds."""
-        print("\n💡 Press 'q' + Enter to quit, or wait 10 seconds for auto-quit...")
+        """Wait for user to press 'q' to quit."""
+        print("\n💡 Press 'q' + Enter to quit...")
         
-        import threading
-        import time
-        
-        # Flag to track if user has quit
-        user_quit = False
-        
-        def check_input():
-            nonlocal user_quit
-            try:
+        try:
+            while True:
                 user_input = input().strip().lower()
                 if user_input == 'q':
-                    user_quit = True
                     print("👋 Goodbye! Closing browser...")
-            except KeyboardInterrupt:
-                user_quit = True
-                print("\n👋 Goodbye! Closing browser...")
-        
-        # Start input thread
-        input_thread = threading.Thread(target=check_input)
-        input_thread.daemon = True
-        input_thread.start()
-        
-        # Wait for either user input or 10 seconds
-        for i in range(10, 0, -1):
-            if user_quit:
-                return True
-            print(f"   Auto-quit in {i} seconds...", end='\r')
-            time.sleep(1)
-        
-        if not user_quit:
-            print("\n⏰ Auto-quit after 10 seconds. Closing browser...")
+                    return True
+        except KeyboardInterrupt:
+            print("\n👋 Goodbye! Closing browser...")
             return True
-        
-        return True
     
     def cleanup(self):
         """Clean up resources."""

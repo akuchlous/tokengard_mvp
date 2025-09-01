@@ -124,7 +124,11 @@ def proxy_endpoint():
             })
             response_code = 400
         else:
+            # Get API key from either JSON payload or X-API-Key header
             api_key = data.get('api_key', '').strip()
+            if not api_key:
+                api_key = request.headers.get('X-API-Key', '').strip()
+            
             text = data.get('text', '')
             
             # Validate API key is provided

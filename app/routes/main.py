@@ -177,6 +177,45 @@ def user_logs(user_id):
 
     return render_template('logs.html', user=user_data)
 
+@main_bp.route('/test/<key_value>')
+def test_key(key_value):
+    """Test API key page - allows users to test their API keys against the proxy endpoint."""
+    # Require login
+    if 'user_id' not in session:
+        return render_error_page('Authentication Required',
+            'You need to be logged in to access this page.', 401)
+
+    # Look up authenticated user by public user_id stored in session
+    authenticated_user = User.query.filter_by(user_id=session['user_id']).first()
+    if not authenticated_user:
+        return render_error_page('User Not Found',
+            'The requested user could not be found.', 404)
+
+    # Must be active account
+    if not authenticated_user.is_active():
+        return render_error_page('Account Not Activated',
+            'This account has not been activated yet.', 403)
+
+    # Verify that the API key belongs to the authenticated user
+    api_key = APIKey.query.filter_by(
+        key_value=key_value,
+        user_id=authenticated_user.id
+    ).first()
+    
+    if not api_key:
+        return render_error_page('API Key Not Found',
+            'The requested API key was not found or does not belong to you.', 404)
+
+    # Prepare user data for template
+    user_data = {
+        'email': authenticated_user.email,
+        'user_id': authenticated_user.user_id,
+        'status': authenticated_user.status,
+        'created_at': authenticated_user.created_at.strftime('%B %d, %Y')
+    }
+
+    return render_template('test_key.html', user=user_data, key_value=key_value)
+
 @main_bp.route('/init-db')
 def init_database():
     """Initialize database tables"""
