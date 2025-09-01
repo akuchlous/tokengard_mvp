@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Banned Keywords - {{ user.email }}{% endblock %}
+{% block body_class %}banned-keywords-page{% endblock %}
+
+
+
+{% block content %}
+<div class="banned-keywords-container">
+    <!-- Header Section -->
+    <div class="banned-keywords-header">
+        <h1>🚫 Banned Keywords Management</h1>
+        <p>Manage keywords that will be blocked in API requests</p>
+        <div class="user-info">
+            <span class="user-email">{{ user.email }}</span>
+            <span class="user-id">ID: {{ user.user_id }}</span>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('main.user_profile', user_id=user.user_id) }}" class="btn btn-secondary">Back to Profile</a>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-primary">Logout</a>
+        </div>
+    </div>
+    
+    <!-- Keywords Management Section -->
+    <div class="keywords-management-section">
+        <h3>🚫 Banned Keywords Management</h3>
+        <p>Enter keywords separated by spaces or commas. These will be blocked in API requests.</p>
+        
+        <form id="keywordsForm">
+            <div class="form-group">
+                <label for="keywordsTextarea">Banned Keywords</label>
+                <textarea id="keywordsTextarea" name="keywords" rows="8" placeholder="Enter keywords separated by spaces or commas...">{{ keywords_text }}</textarea>
+                <div class="help-text">
+                    <small>💡 Tip: You can separate keywords with spaces or commas. Example: spam, scam, fraud, hack virus malware</small>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Keywords</button>
+                <button type="button" class="btn btn-secondary" id="loadDefaults">Load Default Keywords</button>
+                <button type="button" class="btn btn-secondary" id="clearAll">Clear All</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Save keywords functionality
+document.getElementById('keywordsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const textarea = document.getElementById('keywordsTextarea');
+    const keywordsText = textarea.value.trim();
+    
+    if (!keywordsText) {
+        showMessage('Please enter at least one keyword', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/banned-keywords/bulk-update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ keywords_text: keywordsText })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showMessage(`Successfully saved ${data.saved_count} keywords!`, 'success');
+        } else {
+            showMessage(data.error || 'Failed to save keywords', 'error');
+        }
+    } catch (error) {
+        showMessage('Network error: ' + error.message, 'error');
+    }
+});
+
+// Load default keywords
+document.getElementById('loadDefaults').addEventListener('click', async function() {
+    if (!confirm('This will replace your current keywords with default ones. Continue?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/banned-keywords/populate-defaults', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Reload the page to show the new keywords
+            window.location.reload();
+        } else {
+            showMessage(data.error || 'Failed to load default keywords', 'error');
+        }
+    } catch (error) {
+        showMessage('Network error: ' + error.message, 'error');
+    }
+});
+
+// Clear all keywords
+document.getElementById('clearAll').addEventListener('click', function() {
+    if (!confirm('Are you sure you want to clear all keywords?')) {
+        return;
+    }
+    
+    document.getElementById('keywordsTextarea').value = '';
+    showMessage('Keywords cleared. Don\'t forget to save!', 'success');
+});
+
+// Show message function
+function showMessage(message, type) {
+    // Remove existing messages
+    const existingMessages = document.querySelectorAll('.error-message, .success-message');
+    existingMessages.forEach(msg => msg.remove());
+    
+    // Create new message
+    const messageDiv = document.createElement('div');
+    messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+    messageDiv.textContent = message;
+    
+    // Insert at the top of the container
+    const container = document.querySelector('.banned-keywords-container');
+    container.insertBefore(messageDiv, container.firstChild);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (messageDiv.parentNode) {
+            messageDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

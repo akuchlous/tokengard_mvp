@@ -5,13 +5,79 @@ This module contains the API endpoints for the application.
 """
 
 from flask import Blueprint, jsonify, request, url_for
-from ..models import User, APIKey, ActivationToken, ProxyLog
+from ..models import User, APIKey, ActivationToken, ProxyLog, BannedKeyword
 import json
 import time
 import uuid
 from datetime import datetime
 
 api_bp = Blueprint('api', __name__)
+
+def check_external_api(text):
+    """
+    Placeholder function for external API content checking.
+    
+    This is where you would integrate with external services like:
+    - Content moderation APIs
+    - Spam detection services
+    - Toxicity detection APIs
+    - Custom ML models
+    
+    Args:
+        text (str): The text content to check
+        
+    Returns:
+        dict: {
+            'blocked': bool,
+            'reason': str,
+            'confidence': float,
+            'service': str
+        }
+    """
+    # TODO: Implement actual external API call
+    # For now, this is a placeholder that simulates external checking
+    
+    # Simulate some basic checks
+    if not text or len(text.strip()) == 0:
+        return {
+            'blocked': False,
+            'reason': 'No content to check',
+            'confidence': 1.0,
+            'service': 'placeholder'
+        }
+    
+    # Simulate blocking very long text (over 1000 characters)
+    if len(text) > 1000:
+        return {
+            'blocked': True,
+            'reason': 'Content too long',
+            'confidence': 0.8,
+            'service': 'placeholder'
+        }
+    
+    # Simulate blocking text with excessive repetition
+    words = text.lower().split()
+    if len(words) > 10:
+        word_counts = {}
+        for word in words:
+            word_counts[word] = word_counts.get(word, 0) + 1
+        
+        max_repetition = max(word_counts.values()) if word_counts else 0
+        if max_repetition > len(words) * 0.3:  # More than 30% repetition
+            return {
+                'blocked': True,
+                'reason': 'Excessive word repetition detected',
+                'confidence': 0.7,
+                'service': 'placeholder'
+            }
+    
+    # If all checks pass
+    return {
+        'blocked': False,
+        'reason': 'Content passed external checks',
+        'confidence': 0.9,
+        'service': 'placeholder'
+    }
 
 @api_bp.route('/get-activation-link/<email>')
 def get_activation_link(email):
@@ -155,18 +221,54 @@ def proxy_endpoint():
                     })
                     response_code = 401
                 else:
-                    # Key is valid and active
-                    response_status = 'key_pass'
-                    response_body = json.dumps({
-                        'status': 'key_pass',
-                        'message': 'API key is valid.',
-                        'key_name': key_record.key_name,
-                        'text_length': len(text) if text else 0
-                    })
-                    response_code = 200
+                    # Key is valid and active - now check content rules
+                    user = key_record.user
                     
-                    # Update last_used timestamp
-                    key_record.update_last_used()
+                    # Check banned keywords
+                    if text:
+                        is_banned, banned_keyword = BannedKeyword.check_banned(user.id, text)
+                        if is_banned:
+                            response_body = json.dumps({
+                                'status': 'content_error',
+                                'message': f'Content contains banned keyword: {banned_keyword}',
+                                'banned_keyword': banned_keyword
+                            })
+                            response_code = 400
+                        else:
+                            # Placeholder for external API call
+                            external_check_result = check_external_api(text)
+                            if external_check_result['blocked']:
+                                response_body = json.dumps({
+                                    'status': 'content_error',
+                                    'message': f'Content blocked by external service: {external_check_result["reason"]}',
+                                    'external_reason': external_check_result['reason']
+                                })
+                                response_code = 400
+                            else:
+                                # Content passed all checks
+                                response_status = 'key_pass'
+                                response_body = json.dumps({
+                                    'status': 'key_pass',
+                                    'message': 'API key is valid and content passed all checks.',
+                                    'key_name': key_record.key_name,
+                                    'text_length': len(text) if text else 0,
+                                    'external_check': external_check_result
+                                })
+                                response_code = 200
+                    else:
+                        # No text to check, just validate key
+                        response_status = 'key_pass'
+                        response_body = json.dumps({
+                            'status': 'key_pass',
+                            'message': 'API key is valid.',
+                            'key_name': key_record.key_name,
+                            'text_length': 0
+                        })
+                        response_code = 200
+                    
+                    # Update last_used timestamp only if request was successful
+                    if response_code == 200:
+                        key_record.update_last_used()
     
     except Exception as e:
         # Handle any unexpected errors
@@ -452,3 +554,97 @@ def search_logs():
         
     except Exception as e:
         return jsonify({'error': f'Failed to search logs: {str(e)}'}), 500
+
+
+
+@api_bp.route('/banned-keywords/populate-defaults', methods=['POST'])
+def populate_default_keywords():
+    """Populate default banned keywords for the authenticated user."""
+    from flask import session
+    
+    # Check if user is authenticated
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Get authenticated user
+    user = User.query.filter_by(user_id=session['user_id']).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    try:
+        # Clear existing keywords first
+        BannedKeyword.query.filter_by(user_id=user.id).delete()
+        db.session.commit()
+        
+        added_count = BannedKeyword.populate_default_keywords(user.id)
+        return jsonify({
+            'message': f'Added {added_count} default keywords',
+            'added_count': added_count
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to populate default keywords: {str(e)}'}), 500
+
+@api_bp.route('/banned-keywords/bulk-update', methods=['POST'])
+def bulk_update_keywords():
+    """Update all banned keywords for the authenticated user from text input."""
+    from flask import session
+    import re
+    
+    # Check if user is authenticated
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    # Get authenticated user
+    user = User.query.filter_by(user_id=session['user_id']).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Get keywords text from request
+    data = request.get_json()
+    if not data or 'keywords_text' not in data:
+        return jsonify({'error': 'Keywords text is required'}), 400
+    
+    keywords_text = data['keywords_text'].strip()
+    if not keywords_text:
+        return jsonify({'error': 'Keywords text cannot be empty'}), 400
+    
+    try:
+        # Parse keywords from text (split by spaces and commas)
+        keywords = re.split(r'[,\s]+', keywords_text)
+        keywords = [kw.strip().lower() for kw in keywords if kw.strip()]
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_keywords = []
+        for kw in keywords:
+            if kw not in seen and len(kw) <= 100:  # Validate length
+                seen.add(kw)
+                unique_keywords.append(kw)
+        
+        if not unique_keywords:
+            return jsonify({'error': 'No valid keywords found'}), 400
+        
+        # Clear existing keywords
+        BannedKeyword.query.filter_by(user_id=user.id).delete()
+        db.session.commit()
+        
+        # Add new keywords
+        saved_count = 0
+        for keyword in unique_keywords:
+            banned_keyword = BannedKeyword(
+                user_id=user.id,
+                keyword=keyword
+            )
+            db.session.add(banned_keyword)
+            saved_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'Successfully saved {saved_count} keywords',
+            'saved_count': saved_count
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to update keywords: {str(e)}'}), 500

@@ -51,7 +51,7 @@ class TestProxyEndpoint:
             assert response.status_code == 200
             data = response.get_json()
             assert data['status'] == 'key_pass'
-            assert data['message'] == 'API key is valid.'
+            assert data['message'] == 'API key is valid and content passed all checks.'
             assert data['key_name'] == 'key_0'
             assert data['text_length'] == 13
     

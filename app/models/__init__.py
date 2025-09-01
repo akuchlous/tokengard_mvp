@@ -8,6 +8,7 @@ from .database import db
 from .user import User, ActivationToken, PasswordResetToken
 from .api_key import APIKey
 from .proxy_log import ProxyLog
+from .banned_keyword import BannedKeyword
 
 __all__ = [
     'db',
@@ -15,5 +16,6 @@ __all__ = [
     'ActivationToken', 
     'PasswordResetToken',
     'APIKey',
-    'ProxyLog'
+    'ProxyLog',
+    'BannedKeyword'
 ]

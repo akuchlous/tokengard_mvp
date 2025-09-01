@@ -6,7 +6,7 @@ This module contains the main application routes.
 
 from flask import Blueprint, render_template, jsonify, url_for, session, flash, redirect
 from datetime import datetime
-from ..models import User, APIKey, ProxyLog, db
+from ..models import User, APIKey, ProxyLog, BannedKeyword, db
 from ..utils.error_handlers import render_error_page
 
 main_bp = Blueprint('main', __name__)
@@ -316,6 +316,53 @@ def test_key(key_value):
     }
 
     return render_template('test_key.html', user=user_data, key_value=key_value, analytics=analytics_data)
+
+@main_bp.route('/banned_keywords/<user_id>')
+def banned_keywords(user_id):
+    """Display banned keywords management page for the authenticated user."""
+    # Require login
+    if 'user_id' not in session:
+        return render_error_page('Authentication Required',
+            'You need to be logged in to access this page.', 401)
+
+    # Look up authenticated user by public user_id stored in session
+    authenticated_user = User.query.filter_by(user_id=session['user_id']).first()
+    if not authenticated_user:
+        return render_error_page('User Not Found',
+            'The requested user could not be found.', 404)
+
+    # Enforce user can only view their own banned keywords
+    if authenticated_user.user_id != user_id:
+        return render_error_page('Access Denied',
+            'You can only view your own banned keywords.', 403)
+
+    # Must be active account
+    if not authenticated_user.is_active():
+        return render_error_page('Account Not Activated',
+            'This account has not been activated yet.', 403)
+
+    # Prepare user data for template
+    user_data = {
+        'email': authenticated_user.email,
+        'user_id': authenticated_user.user_id,
+        'status': authenticated_user.status,
+        'created_at': authenticated_user.created_at.strftime('%B %d, %Y')
+    }
+
+    # Get user's banned keywords
+    banned_keywords = BannedKeyword.get_user_keywords(authenticated_user.id)
+    
+    # If user has no keywords, populate with defaults
+    if not banned_keywords:
+        BannedKeyword.populate_default_keywords(authenticated_user.id)
+        banned_keywords = BannedKeyword.get_user_keywords(authenticated_user.id)
+    
+    # Convert keywords to text format (space-separated)
+    keywords_text = ' '.join([keyword.keyword for keyword in banned_keywords])
+
+    return render_template('banned_keywords.html', 
+                         user=user_data, 
+                         keywords_text=keywords_text)
 
 @main_bp.route('/init-db')
 def init_database():
