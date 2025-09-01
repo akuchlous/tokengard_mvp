@@ -199,6 +199,17 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('processingTime').textContent = processingTime + 'ms';
         document.getElementById('timestamp').textContent = new Date().toLocaleString();
         
+        // Add status-specific styling
+        const statusElement = document.getElementById('statusCode');
+        statusElement.className = '';
+        if (statusCode >= 200 && statusCode < 300) {
+            statusElement.classList.add('status-success');
+        } else if (statusCode >= 400 && statusCode < 500) {
+            statusElement.classList.add('status-client-error');
+        } else if (statusCode >= 500) {
+            statusElement.classList.add('status-server-error');
+        }
+        
         resultsSection.style.display = 'block';
         resultsSection.scrollIntoView({ behavior: 'smooth' });
     }
@@ -211,7 +222,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function formatResponse(response) {
         if (typeof response === 'object') {
-            return '<pre>' + JSON.stringify(response, null, 2) + '</pre>';
+            // Handle new proxy response format with error codes
+            let formatted = JSON.stringify(response, null, 2);
+            
+            // Add visual indicators for different response types
+            if (response.status === 'key_pass') {
+                formatted = '<div class="response-success">✅ ' + formatted + '</div>';
+            } else if (response.status === 'key_error') {
+                formatted = '<div class="response-error">❌ ' + formatted + '</div>';
+            } else if (response.status === 'content_error') {
+                formatted = '<div class="response-warning">⚠️ ' + formatted + '</div>';
+            }
+            
+            return '<pre>' + formatted + '</pre>';
         } else {
             return '<pre>' + response + '</pre>';
         }
@@ -221,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reload the page to get updated analytics
         setTimeout(() => {
             window.location.reload();
-        }, 1500); // Wait 1.5 seconds to show the results first
+        }, 2000); // Wait 2 seconds to show the results first
     }
 });
 </script>
@@ -508,14 +531,46 @@ document.addEventListener('DOMContentLoaded', function() {
     word-break: break-word;
 }
 
-.result-value pre {
-    background: #f8f9fa;
-    padding: 10px;
-    border-radius: 4px;
-    margin: 0;
-    overflow-x: auto;
-    font-size: 0.9rem;
-}
+    .result-value pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        margin: 0;
+        overflow-x: auto;
+        font-size: 0.9rem;
+    }
+    
+    /* Status code styling */
+    .status-success {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .status-client-error {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .status-server-error {
+        color: #fd7e14;
+        font-weight: bold;
+    }
+    
+    /* Response formatting */
+    .response-success {
+        color: #28a745;
+        font-weight: 500;
+    }
+    
+    .response-error {
+        color: #dc3545;
+        font-weight: 500;
+    }
+    
+    .response-warning {
+        color: #ffc107;
+        font-weight: 500;
+    }
 
 .error-message {
     background: #f8d7da;

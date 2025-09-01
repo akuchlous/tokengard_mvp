@@ -166,6 +166,11 @@
         color: #721c24;
     }
     
+    .status-warning {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
     .api-key-display {
         font-family: monospace;
         font-size: 12px;
@@ -322,6 +327,7 @@
                         <option value="">All Statuses</option>
                         <option value="key_pass">Success</option>
                         <option value="key_error">Error</option>
+                        <option value="content_error">Content Blocked</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -372,9 +378,13 @@
                                         </span>
                                     </td>
                                     <td class="col-status">
-                                        <span class="status-badge status-{{ 'pass' if log.response_status == 'key_pass' else 'error' }}">
-                                            {{ 'Success' if log.response_status == 'key_pass' else 'Error' }}
-                                        </span>
+                                        {% if log.response_status == 'key_pass' %}
+                                            <span class="status-badge status-pass">Success</span>
+                                        {% elif log.response_status == 'content_error' %}
+                                            <span class="status-badge status-warning">Content Blocked</span>
+                                        {% else %}
+                                            <span class="status-badge status-error">Error</span>
+                                        {% endif %}
                                     </td>
                                     <td class="col-request">
                                         <span class="request-body" title="{{ log.request_body or 'N/A' }}">

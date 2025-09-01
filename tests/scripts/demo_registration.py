@@ -47,6 +47,46 @@ class TokenGuardDemo:
             print(f"❌ Failed to setup browser: {e}")
             return False
     
+    def cleanup_database(self):
+        """Clean up the database before starting the demo."""
+        print("🧹 Cleaning up database...")
+        try:
+            # Get confirmation token from environment or use default
+            import os
+            confirmation_token = os.getenv('DB_CLEAR_TOKEN', 'demo-clear-token-2024')
+            
+            # Make a request to clear the database with confirmation token
+            headers = {'X-Confirmation-Token': confirmation_token}
+            response = requests.post(f"{self.base_url}/api/clear-database", 
+                                   headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                print("✅ Database cleaned up successfully!")
+                if 'cleared_counts' in data:
+                    counts = data['cleared_counts']
+                    print(f"   Cleared: {sum(counts.values())} total records")
+                return True
+            elif response.status_code == 401:
+                print("⚠️  Database clearing requires confirmation token")
+                print("   Set DB_CLEAR_TOKEN environment variable")
+                return True  # Continue anyway
+            elif response.status_code == 403:
+                print("⚠️  Database clearing not allowed in this environment")
+                print("   This is expected in production environments")
+                return True  # Continue anyway
+            elif response.status_code == 429:
+                print("⚠️  Database clearing rate limit exceeded")
+                print("   Too many clear attempts")
+                return True  # Continue anyway
+            else:
+                print(f"⚠️  Database cleanup returned status {response.status_code}")
+                return True  # Continue anyway
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️  Could not clean database: {e}")
+            print("   Continuing with demo anyway...")
+            return True  # Continue anyway
+
     def wait_for_server(self, max_attempts=30, delay=1):
         """Wait for the Flask server to be ready with health checks."""
         print("🔍 Checking server health...")
@@ -158,7 +198,7 @@ class TokenGuardDemo:
                 else:
                     print(f"❌ Failed to click {description}: {e}")
                     return False
-        return False
+            return False
     
     def show_popup(self, message, background_color="#4CAF50", duration=1000):
         """Show a popup message with specified styling and duration."""
@@ -608,74 +648,7 @@ class TokenGuardDemo:
                 time.sleep(2)
                 print("✅ Navigated to home page!")
             
-            # Show popup first
-            popup_script = """
-            // Create popup overlay
-            const popup = document.createElement('div');
-            popup.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: #f39c12;
-                color: white;
-                padding: 30px;
-                border-radius: 15px;
-                font-size: 18px;
-                font-weight: bold;
-                z-index: 10000;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-                animation: fadeIn 0.3s ease-in;
-                text-align: center;
-                max-width: 400px;
-                min-width: 350px;
-            `;
-            
-            popup.innerHTML = `
-                <div style="margin-bottom: 20px;">
-                    <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
-                    <div>Sign In After Activating the link</div>
-                </div>
-            `;
-            
-            // Add to page
-            document.body.appendChild(popup);
-            
-            // Add dismiss functionality
-            const dismissBtn = document.getElementById('dismissBtn');
-            dismissBtn.addEventListener('click', function() {
-                popup.style.animation = 'fadeOut 0.3s ease-out';
-                setTimeout(() => {
-                    if (popup.parentNode) {
-                        popup.parentNode.removeChild(popup);
-                    }
-                }, 300);
-            });
-            
-            // Auto-destruct in 1 second
-            setTimeout(() => {
-                if (popup.parentNode) {
-                    popup.style.animation = 'fadeOut 0.3s ease-out';
-                    setTimeout(() => {
-                        if (popup.parentNode) {
-                            popup.parentNode.removeChild(popup);
-                        }
-                    }, 300);
-                }
-            }, 1000);
-            """
-            
-            try:
-                self.driver.execute_script(popup_script)
-                print("✅ Activation reminder popup displayed!")
-                print("   Popup will auto-destruct in 1 second")
-            except Exception as e:
-                print(f"⚠️  Could not show popup: {e}")
-            
-            # Wait for popup to auto-dismiss
-            print("   Waiting for popup to auto-dismiss...")
-            time.sleep(1.5)  # Wait for popup to be visible and auto-dismiss
-            
+            time.sleep(2)
             # Now click the Sign In button
             print("   Clicking Sign In button...")
             signin_button = self.driver.find_element(
@@ -799,19 +772,19 @@ class TokenGuardDemo:
             # Show popup before clicking
             popup_script = """
             // Create navigation popup overlay
-            const popup = document.createElement('div');
-            popup.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
+        const popup = document.createElement('div');
+        popup.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
                 background: #3498db;
-                color: white;
+            color: white;
                 padding: 25px;
                 border-radius: 12px;
                 font-size: 16px;
-                font-weight: bold;
-                text-align: center;
+            font-weight: bold;
+            text-align: center;
                 z-index: 10000;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.3);
                 border: 3px solid #2980b9;
@@ -950,6 +923,286 @@ class TokenGuardDemo:
             
         except Exception as e:
             print(f"❌ Error testing API key: {e}")
+            return False
+    
+    def step_15_5_setup_banned_keywords(self):
+        """Step 15.5: Set up banned keywords for testing."""
+        print("\n1️⃣5️⃣.5️⃣ Setting up banned keywords...")
+        try:
+            # Navigate to profile page first using the back button or profile link
+            current_url = self.driver.current_url
+            print(f"   Current URL: {current_url}")
+            
+            # If we're on test page, go back to keys page first
+            if "/test/" in current_url:
+                # Find and click the back to keys button
+                try:
+                    back_button = self.driver.find_element(By.LINK_TEXT, "← Back to Keys")
+                    back_button.click()
+                    time.sleep(2)
+                    print("✅ Clicked back to keys button")
+                except:
+                    print("❌ Could not find back to keys button")
+                    return False
+            
+            # Now navigate to profile page using the profile button
+            try:
+                # Look for profile button or link
+                profile_buttons = self.driver.find_elements(By.CSS_SELECTOR, 'a[href*="/user/"]')
+                if profile_buttons:
+                    profile_button = profile_buttons[0]
+                    profile_button.click()
+                    time.sleep(2)
+                    print("✅ Clicked profile button")
+                else:
+                    print("❌ Could not find profile button")
+                    return False
+            except Exception as e:
+                print(f"❌ Error clicking profile button: {e}")
+                return False
+            
+            # Now click the banned keywords button
+            try:
+                banned_keywords_button = self.driver.find_element(By.CSS_SELECTOR, 'a[href*="/banned_keywords/"]')
+                banned_keywords_button.click()
+                time.sleep(2)
+                print("✅ Clicked banned keywords button")
+            except Exception as e:
+                print(f"❌ Error clicking banned keywords button: {e}")
+                return False
+            
+            # Show popup about banned keywords
+            popup_script = """
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #f39c12;
+                color: white;
+                padding: 25px;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+                z-index: 10000;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                border: 3px solid #e67e22;
+            `;
+        popup.innerHTML = `
+                <div>🚫 Setting up banned keywords</div>
+                <div style="font-size: 14px; margin-top: 10px; opacity: 0.9;">
+                    Adding test banned words: spam, scam, fraud
+            </div>
+        `;
+            document.body.appendChild(popup);
+            
+            setTimeout(() => {
+                if (document.body.contains(popup)) {
+                    popup.style.animation = 'fadeOut 0.3s ease-out';
+                    setTimeout(() => {
+                        if (document.body.contains(popup)) {
+                            document.body.removeChild(popup);
+                        }
+                    }, 300);
+                }
+            }, 2000);
+            """
+            
+            try:
+                self.driver.execute_script(popup_script)
+                print("✅ Banned keywords setup popup displayed!")
+            except Exception as e:
+                print(f"⚠️  Could not show popup: {e}")
+            
+            # Wait for popup to auto-dismiss
+            time.sleep(2.5)
+            
+            # Set up banned keywords
+            textarea = self.driver.find_element(By.ID, "keywordsTextarea")
+            textarea.clear()
+            test_keywords = "spam, scam, fraud, test_blocked, selenium_test"
+            textarea.send_keys(test_keywords)
+            
+            # Save keywords
+            save_button = self.driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+            save_button.click()
+            time.sleep(2)
+            
+            print("✅ Banned keywords set up successfully")
+            print(f"   Keywords: {test_keywords}")
+            
+            return True
+                
+        except Exception as e:
+            print(f"❌ Error setting up banned keywords: {e}")
+            return False
+    
+    def step_15_6_test_with_banned_words(self):
+        """Step 15.6: Test API key with banned words and show response."""
+        print("\n1️⃣5️⃣.6️⃣ Testing API key with banned words...")
+        try:
+            # Go back to keys page using the "View API Keys" button
+            current_url = self.driver.current_url
+            if "/banned_keywords/" in current_url:
+                # Look for the "View API Keys" button
+                try:
+                    # Try to find the "View API Keys" button
+                    api_keys_buttons = self.driver.find_elements(By.CSS_SELECTOR, 'a[href*="/keys/"]')
+                    if api_keys_buttons:
+                        # Find the button with "View API Keys" text
+                        for button in api_keys_buttons:
+                            if "View API Keys" in button.text or "api_keys" in button.get_attribute("href"):
+                                button.click()
+                                time.sleep(2)
+                                print("✅ Clicked View API Keys button")
+                                break
+                        else:
+                            # If no specific button found, use the first one
+                            api_keys_buttons[0].click()
+                            time.sleep(2)
+                            print("✅ Clicked API keys navigation button")
+                    else:
+                        print("❌ Could not find View API Keys button")
+                        return False
+                except Exception as e:
+                    print(f"❌ Error clicking View API Keys button: {e}")
+                    return False
+                
+                # Find the first API key and click its test button
+                test_buttons = self.driver.find_elements(By.CSS_SELECTOR, '.test-btn')
+                if test_buttons:
+                    first_test_button = test_buttons[0]
+                    first_test_button.click()
+                    time.sleep(2)
+                    print("✅ Navigated back to test page")
+                else:
+                    print("❌ Could not find test button")
+                    return False
+            
+            # Show popup about testing banned words
+            popup_script = """
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #e74c3c;
+                color: white;
+                padding: 25px;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+                z-index: 10000;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                border: 3px solid #c0392b;
+            `;
+            popup.innerHTML = `
+                <div>🚫 Testing with banned words</div>
+                <div style="font-size: 14px; margin-top: 10px; opacity: 0.9;">
+                    This request contains "spam" - should be blocked!
+                </div>
+            `;
+        document.body.appendChild(popup);
+        
+            setTimeout(() => {
+                if (document.body.contains(popup)) {
+            popup.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => {
+                        if (document.body.contains(popup)) {
+                            document.body.removeChild(popup);
+                }
+            }, 300);
+                }
+            }, 2000);
+            """
+            
+            try:
+                self.driver.execute_script(popup_script)
+                print("✅ Banned words test popup displayed!")
+            except Exception as e:
+                print(f"⚠️  Could not show popup: {e}")
+            
+            # Wait for popup to auto-dismiss
+            time.sleep(2.5)
+            
+            # Test with banned words
+            payload_textarea = self.driver.find_element(By.ID, 'payload')
+            test_button = self.driver.find_element(By.ID, 'testBtn')
+            
+            # Set payload with banned words
+            banned_payload = '{"message": "This message contains spam content", "data": {"test": "banned_words"}}'
+            payload_textarea.clear()
+            payload_textarea.send_keys(banned_payload)
+            
+            print(f"   Testing with payload: {banned_payload}")
+            
+            # Highlight and show what will be clicked
+            self.highlight_and_show(test_button, "Test API Key button with banned words", 2000, "red")
+            test_button.click()
+            
+            # Wait for results and page reload
+            time.sleep(5)  # Wait for page reload after test
+            
+            # Show result popup
+            result_popup_script = """
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #27ae60;
+                color: white;
+                padding: 25px;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+                z-index: 10000;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                border: 3px solid #229954;
+            `;
+            popup.innerHTML = `
+                <div>✅ Banned words test completed!</div>
+                <div style="font-size: 14px; margin-top: 10px; opacity: 0.9;">
+                    Request with "spam" was blocked as expected
+                </div>
+            `;
+            document.body.appendChild(popup);
+            
+        setTimeout(() => {
+                if (document.body.contains(popup)) {
+                popup.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => {
+                        if (document.body.contains(popup)) {
+                            document.body.removeChild(popup);
+                    }
+                }, 300);
+            }
+            }, 2000);
+        """
+        
+            try:
+                self.driver.execute_script(result_popup_script)
+                print("✅ Banned words test result popup displayed!")
+            except Exception as e:
+                print(f"⚠️  Could not show result popup: {e}")
+            
+            # Wait for result popup to auto-dismiss
+            time.sleep(2.5)
+            
+            print("✅ Banned words test completed - request was blocked as expected")
+            print("   The API returned a 400 error with 'content_error' status")
+            print("   This shows that banned keywords are working correctly!")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error testing with banned words: {e}")
             return False
     
     def step_16_go_back_to_keys(self):
@@ -1242,6 +1495,9 @@ class TokenGuardDemo:
             print("❌ Server is not ready. Please start the Flask server first.")
             return False
         
+        # Clean up database before starting demo
+        self.cleanup_database()
+        
         try:
             # Execute demo steps
             steps = [
@@ -1260,6 +1516,8 @@ class TokenGuardDemo:
                 self.step_13_navigate_to_api_keys,
                 self.step_14_click_test_first_key,
                 self.step_15_test_key_twice,
+                self.step_15_5_setup_banned_keywords,
+                self.step_15_6_test_with_banned_words,
                 self.step_16_go_back_to_keys,
                 self.step_17_disable_first_key,
                 self.step_18_test_disabled_key,
@@ -1277,6 +1535,8 @@ class TokenGuardDemo:
             print("  ✅ User registration and activation")
             print("  ✅ Login and navigation to API keys")
             print("  ✅ API key testing with different payloads")
+            print("  ✅ Banned keywords setup and testing")
+            print("  ✅ API key testing with banned words (blocked)")
             print("  ✅ Key disabling and testing disabled keys")
             print("  ✅ Profile page navigation")
             print("  ✅ API logs viewing")

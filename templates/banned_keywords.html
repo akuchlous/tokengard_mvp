@@ -17,6 +17,7 @@
         </div>
         <div class="header-actions">
             <a href="{{ url_for('main.user_profile', user_id=user.user_id) }}" class="btn btn-secondary">Back to Profile</a>
+            <a href="{{ url_for('main.user_keys', user_id=user.user_id) }}" class="btn btn-keys">View API Keys</a>
             <a href="{{ url_for('auth.logout') }}" class="btn btn-primary">Logout</a>
         </div>
     </div>
