@@ -215,8 +215,8 @@ def create_app(test_config=None):
             return render_error_page('Account Not Activated',
                 'This account has not been activated yet.', 403)
 
-        # Load API keys for this user (using internal DB id)
-        api_keys = APIKey.query.filter_by(user_id=authenticated_user.id).order_by(APIKey.created_at.desc()).all()
+        # Load API keys for this user (using internal DB id), ordered by key name
+        api_keys = APIKey.query.filter_by(user_id=authenticated_user.id).order_by(APIKey.key_name).all()
 
         # Prepare data for template
         keys_data = [
@@ -237,6 +237,106 @@ def create_app(test_config=None):
         }
 
         return render_template('keys.html', user=user_data, api_keys=keys_data)
+
+    @app.route('/deactivate-key/<int:key_id>', methods=['POST'])
+    def deactivate_key(key_id):
+        """Deactivate an API key (server-side form processing)."""
+        from models import User, APIKey
+        from flask import session, flash, redirect, url_for
+
+        # Require login
+        if 'user_id' not in session:
+            flash('You need to be logged in to perform this action.', 'error')
+            return redirect(url_for('auth.login'))
+
+        # Look up authenticated user by public user_id stored in session
+        authenticated_user = User.query.filter_by(user_id=session['user_id']).first()
+        if not authenticated_user:
+            flash('User not found.', 'error')
+            return redirect(url_for('auth.login'))
+
+        # Must be active account
+        if not authenticated_user.is_active():
+            flash('Account not activated.', 'error')
+            return redirect(url_for('auth.login'))
+
+        # Find the API key
+        api_key = APIKey.query.filter_by(id=key_id, user_id=authenticated_user.id).first()
+        if not api_key:
+            flash('API key not found or access denied.', 'error')
+            return redirect(url_for('user_keys', user_id=authenticated_user.user_id))
+
+        # Deactivate the key
+        if api_key.state.lower() == 'enabled':
+            api_key.state = 'disabled'
+            db.session.commit()
+            flash(f'API key "{api_key.key_name}" has been deactivated.', 'success')
+        else:
+            flash(f'API key "{api_key.key_name}" is already inactive.', 'warning')
+
+        # Redirect back to keys page
+        return redirect(url_for('user_keys', user_id=authenticated_user.user_id))
+
+    @app.route('/api/proxy', methods=['POST'])
+    def proxy_endpoint():
+        """
+        Proxy endpoint that validates API key and processes text.
+        
+        Expects JSON payload with:
+        - api_key: The API key to validate
+        - text: The text to process (optional)
+        
+        Returns:
+        - {"status": "key_pass", "message": "API key is valid"} if key is active
+        - {"status": "key_error", "message": "API key is invalid or inactive"} if key is invalid/inactive
+        """
+        from models import APIKey
+        from flask import request
+        
+        # Get JSON data from request
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'status': 'key_error',
+                'message': 'Invalid request format. JSON payload required.'
+            }), 400
+        
+        api_key = data.get('api_key', '').strip()
+        text = data.get('text', '')
+        
+        # Validate API key is provided
+        if not api_key:
+            return jsonify({
+                'status': 'key_error',
+                'message': 'API key is required.'
+            }), 400
+        
+        # Look up the API key in the database
+        key_record = APIKey.query.filter_by(key_value=api_key).first()
+        
+        if not key_record:
+            return jsonify({
+                'status': 'key_error',
+                'message': 'API key not found.'
+            }), 401
+        
+        # Check if the key is active/enabled
+        if key_record.state.lower() != 'enabled':
+            return jsonify({
+                'status': 'key_error',
+                'message': 'API key is inactive.'
+            }), 401
+        
+        # Update last_used timestamp
+        key_record.update_last_used()
+        
+        # Key is valid and active
+        return jsonify({
+            'status': 'key_pass',
+            'message': 'API key is valid.',
+            'key_name': key_record.key_name,
+            'text_length': len(text) if text else 0
+        }), 200
     
     @app.route('/init-db')
     def init_database():

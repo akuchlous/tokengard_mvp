@@ -141,17 +141,23 @@ def generate_api_key_value():
     return "tk-" + ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
 
 def create_default_api_key(user_id):
-    """Create a default 'test_key' API key for newly activated users"""
-    key_name = "test_key"
-    key_value = generate_api_key_value()
+    """Create 10 default API keys for newly activated users"""
+    api_keys = []
     
-    api_key = APIKey(
-        user_id=user_id,
-        key_name=key_name,
-        key_value=key_value,
-        state='enabled'
-    )
+    # Create 10 API keys with names key_0 through key_9
+    for i in range(10):
+        key_name = f"key_{i}"
+        key_value = generate_api_key_value()
+        
+        api_key = APIKey(
+            user_id=user_id,
+            key_name=key_name,
+            key_value=key_value,
+            state='enabled'
+        )
+        
+        db.session.add(api_key)
+        api_keys.append(api_key)
     
-    db.session.add(api_key)
     db.session.commit()
-    return api_key
+    return api_keys

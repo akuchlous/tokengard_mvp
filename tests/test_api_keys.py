@@ -182,22 +182,30 @@ class TestDefaultAPIKeyCreation:
     """Test default API key creation on user activation"""
     
     def test_create_default_api_key(self, app, db_session, test_user):
-        """Test creating a default API key for a user"""
-        # Create default API key
-        api_key = create_default_api_key(test_user.id)
+        """Test creating 10 default API keys for a user"""
+        # Create default API keys
+        api_keys = create_default_api_key(test_user.id)
         
-        # Verify it's created correctly
-        assert api_key is not None
-        assert api_key.key_name == 'test_key'
-        assert api_key.key_value.startswith('tk-')
-        assert len(api_key.key_value) == 35
-        assert api_key.state == 'enabled'
-        assert api_key.user_id == test_user.id
+        # Verify we get 10 keys
+        assert api_keys is not None
+        assert len(api_keys) == 10
         
-        # Verify it's saved to database
-        db_key = APIKey.query.filter_by(user_id=test_user.id, key_name='test_key').first()
-        assert db_key is not None
-        assert db_key.key_value == api_key.key_value
+        # Verify first key is created correctly
+        first_key = api_keys[0]
+        assert first_key.key_name == 'key_0'
+        assert first_key.key_value.startswith('tk-')
+        assert len(first_key.key_value) == 35
+        assert first_key.state == 'enabled'
+        assert first_key.user_id == test_user.id
+        
+        # Verify all keys are saved to database
+        db_keys = APIKey.query.filter_by(user_id=test_user.id).all()
+        assert len(db_keys) == 10
+        
+        # Verify key names are key_0 through key_9
+        key_names = [key.key_name for key in db_keys]
+        expected_names = [f'key_{i}' for i in range(10)]
+        assert sorted(key_names) == sorted(expected_names)
     
     def test_default_api_key_uniqueness(self, app, db_session):
         """Test that default API keys are unique per user"""
@@ -214,19 +222,27 @@ class TestDefaultAPIKeyCreation:
         db_session.commit()
         
         # Create default API keys for both users
-        api_key1 = create_default_api_key(user1.id)
-        api_key2 = create_default_api_key(user2.id)
+        api_keys1 = create_default_api_key(user1.id)
+        api_keys2 = create_default_api_key(user2.id)
         
-        # Verify both have 'test_key' as name
-        assert api_key1.key_name == 'test_key'
-        assert api_key2.key_name == 'test_key'
+        # Verify both users get 10 keys each
+        assert len(api_keys1) == 10
+        assert len(api_keys2) == 10
         
-        # Verify they have different values
-        assert api_key1.key_value != api_key2.key_value
+        # Verify first keys have correct names
+        assert api_keys1[0].key_name == 'key_0'
+        assert api_keys2[0].key_name == 'key_0'
+        
+        # Verify they have different key values
+        assert api_keys1[0].key_value != api_keys2[0].key_value
         
         # Verify they belong to different users
-        assert api_key1.user_id == user1.id
-        assert api_key2.user_id == user2.id
+        assert api_keys1[0].user_id == user1.id
+        assert api_keys2[0].user_id == user2.id
+        
+        # Verify all key values are unique across both users
+        all_key_values = [key.key_value for key in api_keys1 + api_keys2]
+        assert len(all_key_values) == len(set(all_key_values))  # All unique
 
 
 class TestAPIKeyValidation:

@@ -27,20 +27,48 @@
         </div>
 
         {% if api_keys and api_keys|length > 0 %}
-            <div class="api-keys-list">
-                {% for key in api_keys %}
-                    <div class="api-key-item">
-                        <div class="key-info">
-                            <div class="key-name">{{ key.key_name }}</div>
-                            <div class="key-value">{{ key.key_value }}</div>
-                            <div class="key-status {{ key.state }}">{{ key.state }}</div>
-                        </div>
-                        <div class="key-meta">
-                            <div class="meta-item">Created: {{ key.created_at.strftime('%b %d, %Y %H:%M') if key.created_at }}</div>
-                            <div class="meta-item">Last used: {{ key.last_used.strftime('%b %d, %Y %H:%M') if key.last_used else '—' }}</div>
-                        </div>
-                    </div>
-                {% endfor %}
+            <div class="api-keys-table-container">
+                <table class="api-keys-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Key</th>
+                            <th>Activation Date</th>
+                            <th>State</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key in api_keys %}
+                            <tr>
+                                <td class="key-name">{{ key.key_name }}</td>
+                                <td class="key-value">
+                                    <code>{{ key.key_value }}</code>
+                                </td>
+                                <td class="key-date">
+                                    {{ key.created_at.strftime('%b %d, %Y') if key.created_at else '—' }}
+                                </td>
+                                <td class="key-state">
+                                    <span class="status-badge {{ key.state.lower() }}">
+                                        {{ key.state.upper() }}
+                                    </span>
+                                </td>
+                                <td class="key-actions">
+                                    {% if key.state.lower() == 'enabled' %}
+                                        <form method="POST" action="{{ url_for('deactivate_key', key_id=key.id) }}" style="display: inline;">
+                                            <button type="submit" class="btn btn-sm btn-warning" 
+                                                    onclick="return confirm('Are you sure you want to deactivate this API key?')">
+                                                Deactivate
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         {% else %}
             <div class="no-keys">No API keys yet.</div>

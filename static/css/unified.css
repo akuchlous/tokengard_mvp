@@ -1263,3 +1263,125 @@ body {
         display: none;
     }
 }
+
+/* ==========================================================================
+   Table Components - API Keys table styling
+   ========================================================================== */
+.api-keys-table-container {
+    margin: var(--spacing-lg) 0;
+    overflow-x: auto;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.api-keys-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--background-primary);
+    font-size: var(--font-size-sm);
+}
+
+.api-keys-table th,
+.api-keys-table td {
+    padding: var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.api-keys-table th {
+    background: var(--background-secondary);
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.5px;
+}
+
+.api-keys-table tbody tr:hover {
+    background: var(--background-secondary);
+}
+
+.api-keys-table .key-name {
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.api-keys-table .key-value code {
+    background: var(--background-tertiary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--font-size-xs);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.api-keys-table .key-date {
+    color: var(--text-secondary);
+}
+
+.api-keys-table .key-state .status-badge {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.api-keys-table .key-state .status-badge.enabled {
+    background: var(--success-color);
+    color: white;
+}
+
+.api-keys-table .key-state .status-badge.disabled {
+    background: var(--text-secondary);
+    color: white;
+}
+
+.api-keys-table .key-actions {
+    text-align: center;
+}
+
+.api-keys-table .btn-warning {
+    background: #f59e0b;
+    color: white;
+    border: none;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.api-keys-table .btn-warning:hover {
+    background: #d97706;
+    transform: translateY(-1px);
+}
+
+.api-keys-table .text-muted {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+    .api-keys-table-container {
+        margin: var(--spacing-md) -var(--spacing-md);
+    }
+    
+    .api-keys-table {
+        font-size: var(--font-size-xs);
+    }
+    
+    .api-keys-table th,
+    .api-keys-table td {
+        padding: var(--spacing-sm);
+    }
+    
+    .api-keys-table .key-value code {
+        font-size: 10px;
+        padding: 2px 4px;
+    }
+}

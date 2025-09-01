@@ -483,7 +483,7 @@ class TokenGuardDemo:
             
             # Wait for user to dismiss popup (or auto-dismiss after 15 seconds)
             print("   Waiting for popup to be dismissed...")
-            time.sleep(5)  # Wait a bit for popup to be visible
+            time.sleep(1)  # Wait a bit for popup to be visible
             
             # Now click the Sign In button
             print("   Clicking Sign In button...")
@@ -535,7 +535,7 @@ class TokenGuardDemo:
             password_field.clear()
             password_field.send_keys('TestPass123!')
             print("✅ Filled password: TestPass123!")
-            
+            time.sleep(1)
             # Click Sign In button
             signin_button = self.driver.find_element(
                 By.CSS_SELECTOR, 

@@ -245,27 +245,30 @@ class TestAPIKeysE2E:
             # Step 12: Check if there are any API keys displayed
             print("📋 Checking for API keys...")
             try:
-                # Look for either actual keys or "No API keys yet" message
-                keys_list = driver.find_element(By.CLASS_NAME, "api-keys-list")
-                api_key_items = keys_list.find_elements(By.CLASS_NAME, "api-key-item")
+                # Look for the table structure
+                keys_table = driver.find_element(By.CLASS_NAME, "api-keys-table")
+                api_key_rows = keys_table.find_elements(By.CSS_SELECTOR, "tbody tr")
                 
-                if api_key_items:
-                    print(f"✅ Found {len(api_key_items)} API key(s)")
+                if api_key_rows:
+                    print(f"✅ Found {len(api_key_rows)} API key(s)")
                     
-                    # Check the first key (should be the default test_key)
-                    first_key = api_key_items[0]
-                    key_name = first_key.find_element(By.CLASS_NAME, "key-name").text
-                    key_value = first_key.find_element(By.CLASS_NAME, "key-value").text
-                    key_status = first_key.find_element(By.CLASS_NAME, "key-status").text
+                    # Check the first key (should be key_0)
+                    first_row = api_key_rows[0]
+                    key_name = first_row.find_element(By.CLASS_NAME, "key-name").text
+                    key_value = first_row.find_element(By.CSS_SELECTOR, ".key-value code").text
+                    key_status = first_row.find_element(By.CSS_SELECTOR, ".key-state .status-badge").text
                     
                     print(f"✅ First key: {key_name} = {key_value} ({key_status})")
                     
-                    # Verify it's the expected test key
-                    assert key_name == "test_key", f"Expected 'test_key', got '{key_name}'"
+                    # Verify it's the expected key_0
+                    assert key_name == "key_0", f"Expected 'key_0', got '{key_name}'"
                     assert key_value.startswith("tk-"), f"Expected key to start with 'tk-', got '{key_value}'"
                     assert key_status.lower() == "enabled", f"Expected 'enabled', got '{key_status}'"
                     
-                    print("✅ Test key verified successfully")
+                    # Verify we have 10 keys total
+                    assert len(api_key_rows) == 10, f"Expected 10 keys, got {len(api_key_rows)}"
+                    
+                    print("✅ All 10 API keys verified successfully")
                 else:
                     # Check for "No API keys yet" message
                     no_keys_msg = driver.find_element(By.CLASS_NAME, "no-keys")
