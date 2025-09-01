@@ -78,28 +78,74 @@
         overflow: hidden;
     }
     
-    .logs-table {
+    .excel-table {
         width: 100%;
         border-collapse: collapse;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 13px;
     }
     
-    .logs-table th {
-        background: #f8f9fa;
-        padding: 15px 12px;
+    .excel-table th {
+        background: #f2f2f2;
+        padding: 10px 8px;
         text-align: left;
         font-weight: 600;
         color: #333;
-        border-bottom: 2px solid #e9ecef;
+        border: 1px solid #d0d0d0;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
     
-    .logs-table td {
-        padding: 12px;
-        border-bottom: 1px solid #e9ecef;
+    .excel-table td {
+        padding: 8px;
+        border: 1px solid #d0d0d0;
         vertical-align: top;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     
-    .logs-table tr:hover {
-        background: #f8f9fa;
+    .excel-table tr:nth-child(even) {
+        background: #f9f9f9;
+    }
+    
+    .excel-table tr:hover {
+        background: #e6f3ff;
+    }
+    
+    .col-timestamp {
+        width: 150px;
+        min-width: 150px;
+    }
+    
+    .col-key {
+        width: 200px;
+        min-width: 200px;
+    }
+    
+    .col-status {
+        width: 100px;
+        min-width: 100px;
+    }
+    
+    .col-request {
+        width: 300px;
+        min-width: 300px;
+        max-width: 300px;
+    }
+    
+    .col-response {
+        width: 300px;
+        min-width: 300px;
+        max-width: 300px;
+    }
+    
+    .col-time {
+        width: 120px;
+        min-width: 120px;
     }
     
     .status-badge {
@@ -132,16 +178,44 @@
         white-space: nowrap;
     }
     
-    .request-body {
-        max-width: 300px;
-        font-family: monospace;
-        font-size: 12px;
+    .request-body, .response-body {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 11px;
         background: #f8f9fa;
-        padding: 6px;
-        border-radius: 4px;
+        padding: 4px 6px;
+        border: 1px solid #e0e0e0;
+        border-radius: 3px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        max-width: 280px;
+        display: block;
+        cursor: pointer;
+    }
+    
+    .request-body:hover, .response-body:hover {
+        background: #e9ecef;
+        border-color: #ccc;
+    }
+    
+    .api-key-display {
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 11px;
+        background: #f0f8ff;
+        padding: 4px 6px;
+        border: 1px solid #b3d9ff;
+        border-radius: 3px;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: block;
+        cursor: pointer;
+    }
+    
+    .api-key-display:hover {
+        background: #e6f3ff;
+        border-color: #99ccff;
     }
     
     .pagination {
@@ -193,7 +267,7 @@
 {% endblock %}
 
 {% block content %}
-    <div class="keys-container">
+    <div class="keys-container" style="max-width: 1200px; margin: 0 auto; padding: 20px;">
         <!-- Header Section -->
         <div class="keys-header">
             <div class="header-content">
@@ -212,19 +286,19 @@
         <!-- Stats Summary -->
         <div class="stats-summary" id="statsSummary">
             <div class="stat-card">
-                <div class="stat-number" id="totalCalls">-</div>
+                <div class="stat-number">{{ stats.total_calls }}</div>
                 <div class="stat-label">Total Calls</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="successfulCalls">-</div>
+                <div class="stat-number">{{ stats.successful_calls }}</div>
                 <div class="stat-label">Successful</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="failedCalls">-</div>
+                <div class="stat-number">{{ stats.failed_calls }}</div>
                 <div class="stat-label">Failed</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" id="avgResponseTime">-</div>
+                <div class="stat-number">{{ stats.avg_processing_time }}</div>
                 <div class="stat-label">Avg Response (ms)</div>
             </div>
         </div>
@@ -237,6 +311,9 @@
                     <label class="filter-label">API Key</label>
                     <select class="filter-input" id="apiKeyFilter">
                         <option value="">All API Keys</option>
+                        {% for key in api_keys %}
+                        <option value="{{ key.key_value }}">{{ key.key_name }} ({{ key.key_value[:8] }}...)</option>
+                        {% endfor %}
                     </select>
                 </div>
                 <div class="filter-group">
@@ -266,14 +343,57 @@
         <div class="excel-table-container">
             <div class="table-toolbar">
                 <div class="table-info">
-                    <span class="record-count" id="recordCount">Loading logs...</span>
+                    <span class="record-count" id="recordCount">{{ logs|length }} Log Entries</span>
                     <span class="help-text">💡 Monitor your API key usage and performance</span>
                 </div>
             </div>
             
-            <div class="excel-table-wrapper">
+            <div class="excel-table-wrapper" style="overflow-x: auto; border: 1px solid #d0d0d0; border-radius: 4px;">
                 <div id="logsContent">
-                    <div class="loading">Loading logs...</div>
+                    {% if logs %}
+                        <table class="excel-table" style="min-width: 1200px;">
+                            <thead>
+                                <tr>
+                                    <th class="col-timestamp">Timestamp</th>
+                                    <th class="col-key">API Key</th>
+                                    <th class="col-status">Status</th>
+                                    <th class="col-request">Request Body</th>
+                                    <th class="col-response">Response</th>
+                                    <th class="col-time">Processing Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr class="data-row">
+                                    <td class="col-timestamp">{{ log.request_timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td class="col-key">
+                                        <span class="api-key-display" title="{{ log.api_key_value }}">
+                                            {{ log.api_key_value }}
+                                        </span>
+                                    </td>
+                                    <td class="col-status">
+                                        <span class="status-badge status-{{ 'pass' if log.response_status == 'key_pass' else 'error' }}">
+                                            {{ 'Success' if log.response_status == 'key_pass' else 'Error' }}
+                                        </span>
+                                    </td>
+                                    <td class="col-request">
+                                        <span class="request-body" title="{{ log.request_body or 'N/A' }}">
+                                            {{ log.request_body or 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="col-response">
+                                        <span class="response-body" title="{{ log.response_body or 'N/A' }}">
+                                            {{ log.response_body or 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="col-time">{{ log.processing_time_ms }}ms</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="no-logs">No logs found for your API keys.</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -289,222 +409,35 @@
 {% endblock %}
 
 {% block scripts %}
-        let currentPage = 1;
-        let pageSize = 50;
-        let totalPages = 1;
-        let currentFilters = {};
-        
-        // Load stats on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            loadStats();
-            loadLogs();
-            loadApiKeys();
-        });
-        
-        async function loadStats() {
-            try {
-                const response = await fetch('/api/logs/stats?days=30');
-                const data = await response.json();
-                
-                if (data.stats) {
-                    document.getElementById('totalCalls').textContent = data.stats.total_calls;
-                    document.getElementById('successfulCalls').textContent = data.stats.successful_calls;
-                    document.getElementById('failedCalls').textContent = data.stats.failed_calls;
-                    document.getElementById('avgResponseTime').textContent = data.stats.avg_processing_time;
-                }
-            } catch (error) {
-                console.error('Failed to load stats:', error);
-            }
-        }
-        
-        async function loadApiKeys() {
-            try {
-                const response = await fetch('/api/session-debug');
-                const data = await response.json();
-                
-                const select = document.getElementById('apiKeyFilter');
-                select.innerHTML = '<option value="">All API Keys</option>';
-                
-                if (data.api_keys) {
-                    data.api_keys.forEach(key => {
-                        const option = document.createElement('option');
-                        option.value = key.key_value;
-                        option.textContent = `${key.key_name} (${key.key_value.substring(0, 8)}...)`;
-                        select.appendChild(option);
-                    });
-                }
-            } catch (error) {
-                console.error('Failed to load API keys:', error);
-            }
-        }
-        
-        async function loadLogs() {
-            try {
-                document.getElementById('logsContent').innerHTML = '<div class="loading">Loading logs...</div>';
-                
-                const params = new URLSearchParams({
-                    limit: pageSize,
-                    offset: (currentPage - 1) * pageSize,
-                    ...currentFilters
-                });
-                
-                const response = await fetch(`/api/logs?${params}`);
-                const data = await response.json();
-                
-                if (data.error) {
-                    document.getElementById('logsContent').innerHTML = 
-                        `<div class="error-message">Error: ${data.error}</div>`;
-                    return;
-                }
-                
-                displayLogs(data.logs);
-                updatePagination(data.count);
-                
-            } catch (error) {
-                console.error('Failed to load logs:', error);
-                document.getElementById('logsContent').innerHTML = 
-                    '<div class="error-message">Failed to load logs. Please try again.</div>';
-            }
-        }
-        
-        function displayLogs(logs) {
-            // Update record count
-            document.getElementById('recordCount').textContent = `${logs.length} Log Entries`;
-            
-            if (logs.length === 0) {
-                document.getElementById('logsContent').innerHTML = 
-                    '<div class="no-logs">No logs found matching your criteria.</div>';
-                return;
-            }
-            
-            const table = document.createElement('table');
-            table.className = 'excel-table';
-            
-            // Table header
-            const header = table.createTHead();
-            const headerRow = header.insertRow();
-            const headers = [
-                { text: 'Timestamp', class: 'col-timestamp' },
-                { text: 'API Key', class: 'col-key' },
-                { text: 'Status', class: 'col-status' },
-                { text: 'Request Body', class: 'col-request' },
-                { text: 'Response', class: 'col-response' },
-                { text: 'Processing Time', class: 'col-time' }
-            ];
-            headers.forEach(header => {
-                const th = document.createElement('th');
-                th.textContent = header.text;
-                th.className = header.class;
-                headerRow.appendChild(th);
-            });
-            
-            // Table body
-            const tbody = table.createTBody();
-            logs.forEach((log, index) => {
-                const row = tbody.insertRow();
-                row.className = 'data-row';
-                
-                // Timestamp
-                const timestamp = new Date(log.request_timestamp).toLocaleString();
-                const timestampCell = row.insertCell();
-                timestampCell.className = 'col-timestamp';
-                timestampCell.textContent = timestamp;
-                
-                // API Key
-                const keyCell = row.insertCell();
-                keyCell.className = 'col-key';
-                const keySpan = document.createElement('span');
-                keySpan.className = 'api-key-display';
-                keySpan.textContent = log.api_key_value;
-                keySpan.title = log.api_key_value;
-                keyCell.appendChild(keySpan);
-                
-                // Status
-                const statusCell = row.insertCell();
-                statusCell.className = 'col-status';
-                const statusSpan = document.createElement('span');
-                statusSpan.className = `status-badge status-${log.response_status === 'key_pass' ? 'pass' : 'error'}`;
-                statusSpan.textContent = log.response_status === 'key_pass' ? 'Success' : 'Error';
-                statusCell.appendChild(statusSpan);
-                
-                // Request Body
-                const requestCell = row.insertCell();
-                requestCell.className = 'col-request';
-                const requestSpan = document.createElement('span');
-                requestSpan.className = 'request-body';
-                requestSpan.textContent = log.request_body || 'N/A';
-                requestSpan.title = log.request_body || 'N/A';
-                requestCell.appendChild(requestSpan);
-                
-                // Response
-                const responseCell = row.insertCell();
-                responseCell.className = 'col-response';
-                const responseSpan = document.createElement('span');
-                responseSpan.className = 'request-body';
-                responseSpan.textContent = log.response_body || 'N/A';
-                responseSpan.title = log.response_body || 'N/A';
-                responseCell.appendChild(responseSpan);
-                
-                // Processing Time
-                const timeCell = row.insertCell();
-                timeCell.className = 'col-time';
-                timeCell.textContent = log.processing_time_ms ? `${log.processing_time_ms}ms` : 'N/A';
-            });
-            
-            document.getElementById('logsContent').innerHTML = '';
-            document.getElementById('logsContent').appendChild(table);
-        }
-        
-        function updatePagination(count) {
-            totalPages = Math.ceil(count / pageSize);
-            const pagination = document.getElementById('pagination');
-            
-            if (totalPages <= 1) {
-                pagination.style.display = 'none';
-                return;
-            }
-            
-            pagination.style.display = 'flex';
-            document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
-            document.getElementById('prevPage').disabled = currentPage <= 1;
-            document.getElementById('nextPage').disabled = currentPage >= totalPages;
-        }
-        
-        function changePage(direction) {
-            const newPage = currentPage + direction;
-            if (newPage >= 1 && newPage <= totalPages) {
-                currentPage = newPage;
-                loadLogs();
-            }
-        }
-        
-        function applyFilters() {
-            currentFilters = {};
-            
-            const apiKey = document.getElementById('apiKeyFilter').value;
-            if (apiKey) currentFilters.api_key = apiKey;
-            
-            const status = document.getElementById('statusFilter').value;
-            if (status) currentFilters.status = status;
-            
-            const startDate = document.getElementById('startDateFilter').value;
-            if (startDate) currentFilters.start_date = new Date(startDate).toISOString();
-            
-            const endDate = document.getElementById('endDateFilter').value;
-            if (endDate) currentFilters.end_date = new Date(endDate).toISOString();
-            
-            currentPage = 1;
-            loadLogs();
-        }
-        
-        function clearFilters() {
-            document.getElementById('apiKeyFilter').value = '';
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('startDateFilter').value = '';
-            document.getElementById('endDateFilter').value = '';
-            
-            currentFilters = {};
-            currentPage = 1;
-            loadLogs();
-        }
+<script>
+// Simple client-side filtering for the logs table
+document.addEventListener('DOMContentLoaded', function() {
+    // Hide pagination since we're showing all logs server-side
+    const pagination = document.getElementById('pagination');
+    if (pagination) {
+        pagination.style.display = 'none';
+    }
+});
+
+function applyFilters() {
+    // For now, just show a message that filtering requires page reload
+    alert('Filtering requires a page reload. This feature will be enhanced in future updates.');
+}
+
+function clearFilters() {
+    // Reset all filter inputs
+    const apiKeyFilter = document.getElementById('apiKeyFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const startDateFilter = document.getElementById('startDateFilter');
+    const endDateFilter = document.getElementById('endDateFilter');
+    
+    if (apiKeyFilter) apiKeyFilter.value = '';
+    if (statusFilter) statusFilter.value = '';
+    if (startDateFilter) startDateFilter.value = '';
+    if (endDateFilter) endDateFilter.value = '';
+    
+    alert('Filters cleared. Page will reload to show all logs.');
+    window.location.reload();
+}
+</script>
 {% endblock %}

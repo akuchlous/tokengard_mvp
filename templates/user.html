@@ -33,7 +33,7 @@
     <div class="auth-footer">
         <p>
             <a href="{{ url_for('main.user_keys', user_id=user.user_id) }}" class="btn btn-secondary">View API Keys</a>
-            <a href="{{ url_for('main.user_logs', user_id=user.user_id) }}" class="btn btn-secondary">View API Logs</a>
+            <a href="{{ url_for('main.user_logs', user_id=user.user_id) }}" class="btn btn-logs">View API Logs</a>
             <a href="{{ url_for('auth.logout') }}" class="btn btn-primary">Logout</a>
         </p>
         <p><a href="{{ url_for('main.home') }}" class="home-link">← Back to Home</a></p>

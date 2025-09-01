@@ -1040,6 +1040,113 @@ class TokenGuardDemo:
             print(f"❌ Error testing disabled key: {e}")
             return False
     
+    def step_19_go_to_profile_page(self):
+        """Step 19: Navigate to profile page."""
+        print("\n1️⃣9️⃣ Going to profile page...")
+        try:
+            # Find and click the profile link
+            profile_links = self.driver.find_elements(By.CSS_SELECTOR, 'a[href*="/user/"]')
+            if profile_links:
+                profile_link = profile_links[0]
+                self.driver.execute_script("arguments[0].click();", profile_link)
+                print("✅ Clicked profile link")
+                
+                # Wait for navigation
+                time.sleep(2)
+                current_url = self.driver.current_url
+                if "/user/" in current_url:
+                    print("✅ Navigated to profile page")
+                    print(f"   Current URL: {current_url}")
+                    return True
+                else:
+                    print("❌ Failed to navigate to profile page")
+                    return False
+            else:
+                print("❌ Could not find profile link")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error navigating to profile page: {e}")
+            return False
+    
+    def step_20_show_api_logs_popup(self):
+        """Step 20: Show popup about looking at API logs."""
+        print("\n2️⃣0️⃣ Showing API logs popup...")
+        try:
+            popup_script = """
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                font-size: 16px;
+                font-weight: 600;
+                text-align: center;
+                z-index: 10000;
+                border: 2px solid rgba(255,255,255,0.2);
+                backdrop-filter: blur(10px);
+            `;
+            popup.innerHTML = `
+                <div style="margin-bottom: 10px;">📊</div>
+                <div>Looking at all API logs</div>
+                <div style="font-size: 12px; margin-top: 8px; opacity: 0.9;">
+                    Viewing comprehensive API usage analytics
+                </div>
+            `;
+            document.body.appendChild(popup);
+            
+            setTimeout(() => {
+                if (document.body.contains(popup)) {
+                    document.body.removeChild(popup);
+                }
+            }, 1000);
+            """
+            
+            self.driver.execute_script(popup_script)
+            time.sleep(1)  # Wait for popup to be visible and auto-dismiss
+            print("✅ API logs popup shown")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error showing API logs popup: {e}")
+            return False
+    
+    def step_21_click_api_logs(self):
+        """Step 21: Click on API logs link."""
+        print("\n2️⃣1️⃣ Clicking API logs link...")
+        try:
+            # Find the API logs link
+            logs_links = self.driver.find_elements(By.CSS_SELECTOR, 'a[href*="/logs/"]')
+            if logs_links:
+                logs_link = logs_links[0]
+                self.driver.execute_script("arguments[0].click();", logs_link)
+                print("✅ Clicked API logs link")
+                
+                # Wait for navigation
+                time.sleep(2)
+                current_url = self.driver.current_url
+                if "/logs/" in current_url:
+                    print("✅ Navigated to API logs page")
+                    print(f"   Current URL: {current_url}")
+                    return True
+                else:
+                    print("❌ Failed to navigate to API logs page")
+                    return False
+            else:
+                print("❌ Could not find API logs link")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error clicking API logs link: {e}")
+            return False
+    
     def run_demo(self):
         """Run the complete demo flow."""
         print("🎭 Starting TokenGuard Demo")
@@ -1074,7 +1181,10 @@ class TokenGuardDemo:
                 self.step_15_test_key_twice,
                 self.step_16_go_back_to_keys,
                 self.step_17_disable_first_key,
-                self.step_18_test_disabled_key
+                self.step_18_test_disabled_key,
+                self.step_19_go_to_profile_page,
+                self.step_20_show_api_logs_popup,
+                self.step_21_click_api_logs
             ]
             
             for i, step in enumerate(steps, 1):
@@ -1087,6 +1197,8 @@ class TokenGuardDemo:
             print("  ✅ Login and navigation to API keys")
             print("  ✅ API key testing with different payloads")
             print("  ✅ Key disabling and testing disabled keys")
+            print("  ✅ Profile page navigation")
+            print("  ✅ API logs viewing")
             print("The browser is open for you to explore.")
             print("Press 'q' + Enter in this terminal to close the browser and exit")
             

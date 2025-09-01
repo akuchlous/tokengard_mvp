@@ -175,7 +175,77 @@ def user_logs(user_id):
         'created_at': authenticated_user.created_at.strftime('%B %d, %Y')
     }
 
-    return render_template('logs.html', user=user_data)
+    # Load logs data server-side
+    from ..models import ProxyLog, APIKey
+    from datetime import datetime, timedelta
+    
+    # Get user's API keys
+    user_api_keys = APIKey.query.filter_by(user_id=authenticated_user.id).all()
+    api_key_values = [key.key_value for key in user_api_keys]
+    
+    # Get recent logs (last 30 days, limit 100)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    logs = ProxyLog.query.filter(
+        ProxyLog.api_key_value.in_(api_key_values),
+        ProxyLog.request_timestamp >= thirty_days_ago
+    ).order_by(ProxyLog.request_timestamp.desc()).limit(100).all()
+    
+    # Get stats
+    total_calls = ProxyLog.query.filter(ProxyLog.api_key_value.in_(api_key_values)).count()
+    successful_calls = ProxyLog.query.filter(
+        ProxyLog.api_key_value.in_(api_key_values),
+        ProxyLog.response_status == 'key_pass'
+    ).count()
+    failed_calls = ProxyLog.query.filter(
+        ProxyLog.api_key_value.in_(api_key_values),
+        ProxyLog.response_status == 'key_error'
+    ).count()
+    
+    # Calculate average processing time
+    avg_time_logs = ProxyLog.query.filter(
+        ProxyLog.api_key_value.in_(api_key_values),
+        ProxyLog.processing_time_ms.isnot(None)
+    ).all()
+    avg_processing_time = 0
+    if avg_time_logs:
+        total_time = sum(log.processing_time_ms for log in avg_time_logs if log.processing_time_ms)
+        avg_processing_time = round(total_time / len(avg_time_logs), 1) if avg_time_logs else 0
+    
+    # Prepare logs data for template
+    logs_data = []
+    for log in logs:
+        logs_data.append({
+            'id': log.id,
+            'request_timestamp': log.request_timestamp,
+            'api_key_value': log.api_key_value,
+            'response_status': log.response_status,
+            'request_body': log.request_body,
+            'response_body': log.response_body,
+            'processing_time_ms': log.processing_time_ms
+        })
+    
+    # Prepare stats data
+    stats_data = {
+        'total_calls': total_calls,
+        'successful_calls': successful_calls,
+        'failed_calls': failed_calls,
+        'avg_processing_time': avg_processing_time
+    }
+    
+    # Prepare API keys data for filter dropdown
+    api_keys_data = []
+    for key in user_api_keys:
+        api_keys_data.append({
+            'key_name': key.key_name,
+            'key_value': key.key_value,
+            'state': key.state
+        })
+
+    return render_template('logs.html', 
+                         user=user_data, 
+                         logs=logs_data, 
+                         stats=stats_data,
+                         api_keys=api_keys_data)
 
 @main_bp.route('/test/<key_value>')
 def test_key(key_value):
