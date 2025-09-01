@@ -758,16 +758,16 @@ class TokenGuardDemo:
             `;
             document.body.appendChild(popup);
             
-            // Auto-remove popup after 3 seconds
+            // Auto-remove popup after 1 second
             setTimeout(() => {
                 if (document.body.contains(popup)) {
                     document.body.removeChild(popup);
                 }
-            }, 3000);
+            }, 1000);
             """
             
             self.driver.execute_script(popup_script)
-            time.sleep(3)  # Wait for popup to be visible
+            time.sleep(1)  # Wait for popup to be visible
             
             # Click the API Keys link
             api_keys_link.click()

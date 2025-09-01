@@ -206,6 +206,28 @@ def test_key(key_value):
         return render_error_page('API Key Not Found',
             'The requested API key was not found or does not belong to you.', 404)
 
+    # Get usage count for this API key
+    usage_count = ProxyLog.query.filter_by(api_key_value=key_value).count()
+    
+    # Get recent usage stats (last 30 days)
+    from datetime import datetime, timedelta
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    recent_usage = ProxyLog.query.filter(
+        ProxyLog.api_key_value == key_value,
+        ProxyLog.request_timestamp >= thirty_days_ago
+    ).count()
+    
+    # Get successful vs failed calls
+    successful_calls = ProxyLog.query.filter(
+        ProxyLog.api_key_value == key_value,
+        ProxyLog.response_status == 'key_pass'
+    ).count()
+    
+    failed_calls = ProxyLog.query.filter(
+        ProxyLog.api_key_value == key_value,
+        ProxyLog.response_status == 'key_error'
+    ).count()
+
     # Prepare user data for template
     user_data = {
         'email': authenticated_user.email,
@@ -213,8 +235,17 @@ def test_key(key_value):
         'status': authenticated_user.status,
         'created_at': authenticated_user.created_at.strftime('%B %d, %Y')
     }
+    
+    # Prepare analytics data
+    analytics_data = {
+        'total_usage': usage_count,
+        'recent_usage': recent_usage,
+        'successful_calls': successful_calls,
+        'failed_calls': failed_calls,
+        'success_rate': round((successful_calls / usage_count * 100), 1) if usage_count > 0 else 0
+    }
 
-    return render_template('test_key.html', user=user_data, key_value=key_value)
+    return render_template('test_key.html', user=user_data, key_value=key_value, analytics=analytics_data)
 
 @main_bp.route('/init-db')
 def init_database():

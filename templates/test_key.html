@@ -21,6 +21,35 @@
         </div>
     </div>
 
+    <!-- Analytics Section -->
+    <div class="analytics-section">
+        <div class="analytics-container">
+            <h3>📊 Usage Analytics</h3>
+            <div class="analytics-grid">
+                <div class="analytics-item">
+                    <div class="analytics-value">{{ analytics.total_usage }}</div>
+                    <div class="analytics-label">Total Calls</div>
+                </div>
+                <div class="analytics-item">
+                    <div class="analytics-value">{{ analytics.recent_usage }}</div>
+                    <div class="analytics-label">Last 30 Days</div>
+                </div>
+                <div class="analytics-item">
+                    <div class="analytics-value success">{{ analytics.successful_calls }}</div>
+                    <div class="analytics-label">Successful</div>
+                </div>
+                <div class="analytics-item">
+                    <div class="analytics-value error">{{ analytics.failed_calls }}</div>
+                    <div class="analytics-label">Failed</div>
+                </div>
+                <div class="analytics-item">
+                    <div class="analytics-value rate">{{ analytics.success_rate }}%</div>
+                    <div class="analytics-label">Success Rate</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Test Form Section -->
     <div class="test-form-section">
         <div class="form-container">
@@ -200,12 +229,78 @@ document.addEventListener('DOMContentLoaded', function() {
     color: white;
     padding: 30px;
     border-radius: 12px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
     gap: 20px;
+}
+
+.analytics-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.analytics-container {
+    padding: 25px;
+}
+
+.analytics-container h3 {
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 20px;
+}
+
+.analytics-item {
+    text-align: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.analytics-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.analytics-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.analytics-value.success {
+    color: #28a745;
+}
+
+.analytics-value.error {
+    color: #dc3545;
+}
+
+.analytics-value.rate {
+    color: #17a2b8;
+}
+
+.analytics-label {
+    font-size: 0.85rem;
+    color: #666;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .header-content h1 {
@@ -244,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function() {
     background: white;
     border-radius: 12px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     overflow: hidden;
 }
 
@@ -428,6 +523,15 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .header-actions {
         justify-content: center;
+    }
+    
+    .analytics-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    .analytics-value {
+        font-size: 1.5rem;
     }
     
     .form-actions {
