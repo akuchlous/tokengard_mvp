@@ -331,6 +331,32 @@ a:hover {
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
+.btn-keys {
+    background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+    color: white;
+    border: 1px solid #229954;
+    font-weight: 600;
+}
+
+.btn-keys:hover {
+    background: linear-gradient(135deg, #229954 0%, #27ae60 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+
+.btn-logout {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+    border: 1px solid #c0392b;
+    font-weight: 600;
+}
+
+.btn-logout:hover {
+    background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
 .btn-success {
     background: var(--success-color);
     color: white;
