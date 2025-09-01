@@ -180,6 +180,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show results
             showResults(response.status, parsedResponse, processingTime);
             
+            // Refresh analytics after successful API call
+            refreshAnalytics();
+            
         } catch (error) {
             showError('Network error: ' + error.message);
         } finally {
@@ -212,6 +215,13 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             return '<pre>' + response + '</pre>';
         }
+    }
+    
+    function refreshAnalytics() {
+        // Reload the page to get updated analytics
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500); // Wait 1.5 seconds to show the results first
     }
 });
 </script>

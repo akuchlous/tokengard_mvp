@@ -854,11 +854,9 @@ class TokenGuardDemo:
             payload_textarea.send_keys('{"message": "First test", "data": {"test": 1}}')
             test_button.click()
             
-            # Wait for results and scroll to analytics
-            time.sleep(3)
-            self.driver.execute_script("document.querySelector('.analytics-section').scrollIntoView({behavior: 'smooth', block: 'center'});")
-            time.sleep(1)
-            print("✅ First test completed - scrolled to analytics")
+            # Wait for results and page reload
+            time.sleep(5)  # Wait for page reload after test
+            print("✅ First test completed - page reloaded with updated analytics")
             
             # Second test with different payload
             print("   Testing with second payload...")
@@ -866,11 +864,9 @@ class TokenGuardDemo:
             payload_textarea.send_keys('{"message": "Second test", "data": {"test": 2, "timestamp": "' + str(int(time.time())) + '"}}')
             test_button.click()
             
-            # Wait for results and scroll to analytics
-            time.sleep(3)
-            self.driver.execute_script("document.querySelector('.analytics-section').scrollIntoView({behavior: 'smooth', block: 'center'});")
-            time.sleep(1)
-            print("✅ Second test completed - scrolled to analytics")
+            # Wait for results and page reload
+            time.sleep(5)  # Wait for page reload after test
+            print("✅ Second test completed - page reloaded with updated analytics")
             
             return True
             
@@ -968,6 +964,14 @@ class TokenGuardDemo:
                 self.driver.execute_script("arguments[0].click();", first_deactivate_button)
                 print("✅ Clicked deactivate button")
                 
+                # Handle confirmation alert if it appears
+                try:
+                    alert = self.driver.switch_to.alert
+                    alert.accept()  # Accept the confirmation
+                    print("✅ Accepted deactivation confirmation")
+                except:
+                    print("   No confirmation alert appeared")
+                
                 # Wait for the action to complete
                 time.sleep(3)
                 print("✅ First key disabled")
@@ -1000,11 +1004,9 @@ class TokenGuardDemo:
                 )
                 print("✅ Navigated to test page for disabled key")
                 
-                # Wait for page to load and scroll to analytics to show previous runs
+                # Wait for page to load
                 time.sleep(2)
-                self.driver.execute_script("document.querySelector('.analytics-section').scrollIntoView({behavior: 'smooth', block: 'center'});")
-                time.sleep(1)
-                print("✅ Scrolled to analytics section to show previous test runs")
+                print("✅ Page loaded - analytics will show previous test runs")
                 
                 # Test the disabled key
                 payload_textarea = self.driver.find_element(By.ID, 'payload')
@@ -1015,11 +1017,9 @@ class TokenGuardDemo:
                 payload_textarea.send_keys('{"message": "Testing disabled key", "data": {"test": "disabled"}}')
                 test_button.click()
                 
-                # Wait for results and scroll to analytics again
-                time.sleep(3)
-                self.driver.execute_script("document.querySelector('.analytics-section').scrollIntoView({behavior: 'smooth', block: 'center'});")
-                time.sleep(1)
-                print("✅ Disabled key test completed (should show error) - scrolled to analytics")
+                # Wait for results and page reload
+                time.sleep(5)  # Wait for page reload after test
+                print("✅ Disabled key test completed (should show error) - page reloaded with updated analytics")
                 return True
             else:
                 print("❌ Could not find test buttons")
