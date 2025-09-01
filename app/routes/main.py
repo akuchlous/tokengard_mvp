@@ -6,7 +6,7 @@ This module contains the main application routes.
 
 from flask import Blueprint, render_template, jsonify, url_for, session, flash, redirect
 from datetime import datetime
-from ..models import User, APIKey, ProxyLog
+from ..models import User, APIKey, ProxyLog, db
 from ..utils.error_handlers import render_error_page
 
 main_bp = Blueprint('main', __name__)
