@@ -274,17 +274,6 @@ class TokenGuardDemo:
                 <div style="font-size: 24px; margin-bottom: 10px;">📧</div>
                 <div>Please activate<br>the account link</div>
             </div>
-            <button id="dismissBtn" style="
-                background: white;
-                color: #e74c3c;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: bold;
-                cursor: pointer;
-                transition: all 0.3s ease;
-            ">Dismiss</button>
         `;
         
         // Add to page
@@ -454,19 +443,8 @@ class TokenGuardDemo:
             popup.innerHTML = `
                 <div style="margin-bottom: 20px;">
                     <div style="font-size: 24px; margin-bottom: 10px;">⚠️</div>
-                    <div>Please dismiss this popup<br>after activating the link</div>
+                    <div>Sign In After Activating the link</div>
                 </div>
-                <button id="dismissBtn" style="
-                    background: white;
-                    color: #f39c12;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 8px;
-                    font-size: 16px;
-                    font-weight: bold;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                ">Dismiss</button>
             `;
             
             // Add to page
