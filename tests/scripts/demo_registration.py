@@ -854,9 +854,11 @@ class TokenGuardDemo:
             payload_textarea.send_keys('{"message": "First test", "data": {"test": 1}}')
             test_button.click()
             
-            # Wait for results
+            # Wait for results and scroll to analytics
             time.sleep(3)
-            print("✅ First test completed")
+            self.driver.execute_script("document.querySelector('.analytics-section').scrollIntoView({behavior: 'smooth', block: 'center'});")
+            time.sleep(1)
+            print("✅ First test completed - scrolled to analytics")
             
             # Second test with different payload
             print("   Testing with second payload...")
@@ -864,9 +866,11 @@ class TokenGuardDemo:
             payload_textarea.send_keys('{"message": "Second test", "data": {"test": 2, "timestamp": "' + str(int(time.time())) + '"}}')
             test_button.click()
             
-            # Wait for results
+            # Wait for results and scroll to analytics
             time.sleep(3)
-            print("✅ Second test completed")
+            self.driver.execute_script("document.querySelector('.analytics-section').scrollIntoView({behavior: 'smooth', block: 'center'});")
+            time.sleep(1)
+            print("✅ Second test completed - scrolled to analytics")
             
             return True
             
@@ -878,9 +882,9 @@ class TokenGuardDemo:
         """Step 16: Go back to keys page."""
         print("\n1️⃣6️⃣ Going back to keys page...")
         try:
-            # Find and click the back to keys button
+            # Find and click the back to keys button using JavaScript
             back_button = self.driver.find_element(By.LINK_TEXT, "← Back to Keys")
-            back_button.click()
+            self.driver.execute_script("arguments[0].click();", back_button)
             print("✅ Clicked back to keys button")
             
             # Wait for navigation
@@ -902,18 +906,70 @@ class TokenGuardDemo:
             # Wait for page to load
             time.sleep(2)
             
-            # Find the first deactivate button
-            deactivate_buttons = self.driver.find_elements(By.CSS_SELECTOR, 'button[onclick*="deactivate"]')
-            if deactivate_buttons:
-                first_deactivate_button = deactivate_buttons[0]
-                print("✅ Found first deactivate button")
-                
-                # Click the deactivate button
-                first_deactivate_button.click()
+            # Show popup before disabling
+            popup_script = """
+            const popup = document.createElement('div');
+            popup.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #e74c3c;
+                color: white;
+                padding: 25px;
+                border-radius: 12px;
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+                z-index: 10000;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                border: 3px solid #c0392b;
+            `;
+            popup.innerHTML = `
+                <div>🔒 Disabling the key and testing again</div>
+                <div style="font-size: 14px; margin-top: 10px; opacity: 0.9;">
+                    This will show how disabled keys behave...
+                </div>
+            `;
+            document.body.appendChild(popup);
+            
+            setTimeout(() => {
+                if (document.body.contains(popup)) {
+                    document.body.removeChild(popup);
+                }
+            }, 3000);
+            """
+            
+            self.driver.execute_script(popup_script)
+            time.sleep(3)  # Wait for popup to be visible
+            
+            # Find the first deactivate button with multiple selectors
+            deactivate_selectors = [
+                'button[onclick*="deactivate"]',
+                'form[action*="deactivate"] button',
+                'button:contains("Deactivate")',
+                '.btn-danger',
+                'button[type="submit"]'
+            ]
+            
+            first_deactivate_button = None
+            for selector in deactivate_selectors:
+                try:
+                    buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    if buttons:
+                        first_deactivate_button = buttons[0]
+                        print(f"✅ Found deactivate button with selector: {selector}")
+                        break
+                except:
+                    continue
+            
+            if first_deactivate_button:
+                # Click the deactivate button using JavaScript
+                self.driver.execute_script("arguments[0].click();", first_deactivate_button)
                 print("✅ Clicked deactivate button")
                 
                 # Wait for the action to complete
-                time.sleep(2)
+                time.sleep(3)
                 print("✅ First key disabled")
                 return True
             else:
@@ -944,8 +1000,13 @@ class TokenGuardDemo:
                 )
                 print("✅ Navigated to test page for disabled key")
                 
-                # Test the disabled key
+                # Wait for page to load and scroll to analytics to show previous runs
                 time.sleep(2)
+                self.driver.execute_script("document.querySelector('.analytics-section').scrollIntoView({behavior: 'smooth', block: 'center'});")
+                time.sleep(1)
+                print("✅ Scrolled to analytics section to show previous test runs")
+                
+                # Test the disabled key
                 payload_textarea = self.driver.find_element(By.ID, 'payload')
                 test_button = self.driver.find_element(By.ID, 'testBtn')
                 
@@ -954,9 +1015,11 @@ class TokenGuardDemo:
                 payload_textarea.send_keys('{"message": "Testing disabled key", "data": {"test": "disabled"}}')
                 test_button.click()
                 
-                # Wait for results
+                # Wait for results and scroll to analytics again
                 time.sleep(3)
-                print("✅ Disabled key test completed (should show error)")
+                self.driver.execute_script("document.querySelector('.analytics-section').scrollIntoView({behavior: 'smooth', block: 'center'});")
+                time.sleep(1)
+                print("✅ Disabled key test completed (should show error) - scrolled to analytics")
                 return True
             else:
                 print("❌ Could not find test buttons")
