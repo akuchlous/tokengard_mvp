@@ -113,7 +113,7 @@ demo: kill
 	@echo "Waiting for server to start..."
 	@sleep 3
 	@echo "Server started! Running demo script..."
-	@python demo_registration.py
+	@python tests/scripts/demo_registration.py
 	@echo ""
 	@echo "Demo completed! The Flask server is still running in the background."
 	@echo "To stop the server, run 'make kill' or find and kill the Python process."

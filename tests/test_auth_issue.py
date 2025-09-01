@@ -2,13 +2,13 @@
 """
 Test the exact authentication issue: after login, accessing /user/{user_id} gives 401
 """
-import requests
 import json
+from app import app as flask_app
 
 def test_auth_issue():
     """Test the authentication issue step by step"""
     
-    base_url = "http://localhost:5000"
+    client = flask_app.test_client()
     
     print("🧪 Testing the exact authentication issue you reported...")
     print("=" * 60)
@@ -20,11 +20,11 @@ def test_auth_issue():
         'password': 'DemoPass123!'
     }
     
-    response = requests.post(f"{base_url}/auth/register", json=register_data)
+    response = client.post("/auth/register", json=register_data)
     print(f"   Registration: {response.status_code}")
     
     if response.status_code == 201:
-        user_data = response.json()
+        user_data = response.get_json()
         user_id = user_data['user_id']
         print(f"   ✅ User created: {user_id}")
     else:
@@ -33,7 +33,7 @@ def test_auth_issue():
     
     # Step 2: Try to login (this will fail because account not activated)
     print("\n2️⃣ Attempting login (expected to fail due to activation)...")
-    response = requests.post(f"{base_url}/auth/login", json=register_data)
+    response = client.post("/auth/login", json=register_data)
     print(f"   Login: {response.status_code}")
     
     if response.status_code == 200:

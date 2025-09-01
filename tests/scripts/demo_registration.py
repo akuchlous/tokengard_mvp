@@ -163,20 +163,20 @@ class TokenGuardDemo:
             # Fill email
             email_field = self.driver.find_element(By.NAME, 'email')
             email_field.clear()
-            email_field.send_keys('a@a.com')
-            print("✅ Filled email: a@a.com")
+            email_field.send_keys('test@example.com')
+            print("✅ Filled email: test@example.com")
             
             # Fill password
             password_field = self.driver.find_element(By.NAME, 'password')
             password_field.clear()
-            password_field.send_keys('Ankur123!')
-            print("✅ Filled password: Ankur123!")
+            password_field.send_keys('TestPass123!')
+            print("✅ Filled password: TestPass123!")
             
             # Fill confirm password
             confirm_password_field = self.driver.find_element(By.NAME, 'confirmPassword')
             confirm_password_field.clear()
-            confirm_password_field.send_keys('Ankur123!')
-            print("✅ Filled confirm password: Ankur123!")
+            confirm_password_field.send_keys('TestPass123!')
+            print("✅ Filled confirm password: TestPass123!")
             
             # Click Create Account button
             create_account_button = self.driver.find_element(
@@ -527,14 +527,14 @@ class TokenGuardDemo:
             # Fill email
             email_field = self.driver.find_element(By.NAME, 'email')
             email_field.clear()
-            email_field.send_keys('a@a.com')
-            print("✅ Filled email: a@a.com")
+            email_field.send_keys('test@example.com')
+            print("✅ Filled email: test@example.com")
             
             # Fill password
             password_field = self.driver.find_element(By.NAME, 'password')
             password_field.clear()
-            password_field.send_keys('Ankur123!')
-            print("✅ Filled password: Ankur123!")
+            password_field.send_keys('TestPass123!')
+            print("✅ Filled password: TestPass123!")
             
             # Click Sign In button
             signin_button = self.driver.find_element(
@@ -620,17 +620,6 @@ class TokenGuardDemo:
                 <div style="font-size: 24px; margin-bottom: 10px;">🎉</div>
                 <div>Demo completed successfully!<br>User is logged in and on profile page</div>
             </div>
-            <button id="dismissBtn" style="
-                background: white;
-                color: #27ae60;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: bold;
-                cursor: pointer;
-                transition: all 0.3s ease;
-            ">Dismiss</button>
         `;
         
         // Add to page

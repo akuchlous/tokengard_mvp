@@ -134,41 +134,63 @@ def activate_account(token):
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login endpoint"""
+    """User login endpoint. Supports HTML form posts and JSON API."""
     if request.method == 'GET':
         return render_template('auth/login.html')
-    
-    # Handle POST request
-    data = request.get_json()
-    email = data.get('email', '').strip().lower()
-    password = data.get('password', '')
-    
+
+    # If JSON payload, keep API behavior
+    if request.is_json:
+        data = request.get_json() or {}
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+    else:
+        # Handle HTML form submission
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+
     if not email or not password:
-        return jsonify({'error': 'Email and password are required'}), 400
-    
+        if request.is_json:
+            return jsonify({'error': 'Email and password are required'}), 400
+        flash('Email and password are required', 'error')
+        return render_template('auth/login.html'), 400
+
     # Find user first to check activation status
     user = User.query.filter_by(email=email).first()
     
     if not user:
-        return jsonify({'error': 'Invalid email or password'}), 401
+        if request.is_json:
+            return jsonify({'error': 'Invalid email or password'}), 401
+        flash('Invalid email or password', 'error')
+        return render_template('auth/login.html'), 401
     
     if not user.is_active():
-        return jsonify({'error': 'Account not activated. Please check your email for activation link.'}), 403
+        if request.is_json:
+            return jsonify({'error': 'Account not activated. Please check your email for activation link.'}), 403
+        flash('Account not activated. Please check your email for activation link.', 'error')
+        return render_template('auth/login.html'), 403
     
     # Verify password
     if not verify_password(password, user.password_hash):
-        return jsonify({'error': 'Invalid email or password'}), 401
+        if request.is_json:
+            return jsonify({'error': 'Invalid email or password'}), 401
+        flash('Invalid email or password', 'error')
+        return render_template('auth/login.html'), 401
     
     # Update last login
     user.update_last_login()
     
     # Set session for API key management
-    session['user_id'] = user.id
+    session['user_id'] = user.user_id
     session['user_email'] = user.email
     
-    # Generate JWT token
+    # Generate JWT token for API consumers
     token = generate_jwt_token(user.id)
-    
+
+    # For HTML form, redirect to profile
+    if not request.is_json:
+        return redirect(url_for('user_profile', user_id=user.user_id))
+
+    # For JSON API, return JSON response
     return jsonify({
         'message': 'Login successful',
         'token': token,
@@ -193,12 +215,12 @@ def list_api_keys():
     """List all API keys for the authenticated user"""
     try:
         user_id = session.get('user_id')
-        user = User.query.get(user_id)
+        user = User.query.filter_by(user_id=user_id).first()
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        api_keys = APIKey.query.filter_by(user_id=user_id).all()
+        api_keys = APIKey.query.filter_by(user_id=user.id).all()
         
         keys_data = []
         for key in api_keys:
@@ -225,7 +247,7 @@ def create_api_key():
     """Create a new API key for the authenticated user"""
     try:
         user_id = session.get('user_id')
-        user = User.query.get(user_id)
+        user = User.query.filter_by(user_id=user_id).first()
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -240,7 +262,7 @@ def create_api_key():
             return jsonify({'error': 'Key name must be exactly 6 characters'}), 400
         
         # Check if key name already exists for this user
-        existing_key = APIKey.query.filter_by(user_id=user_id, key_name=key_name).first()
+        existing_key = APIKey.query.filter_by(user_id=user.id, key_name=key_name).first()
         if existing_key:
             return jsonify({'error': 'Key name already exists'}), 409
         
@@ -249,7 +271,7 @@ def create_api_key():
         key_value = generate_api_key_value()
         
         api_key = APIKey(
-            user_id=user_id,
+            user_id=user.id,
             key_name=key_name,
             key_value=key_value,
             state='enabled'
@@ -279,12 +301,12 @@ def toggle_api_key(key_id):
     """Enable or disable an API key"""
     try:
         user_id = session.get('user_id')
-        user = User.query.get(user_id)
+        user = User.query.filter_by(user_id=user_id).first()
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        api_key = APIKey.query.filter_by(id=key_id, user_id=user_id).first()
+        api_key = APIKey.query.filter_by(id=key_id, user_id=user.id).first()
         
         if not api_key:
             return jsonify({'error': 'API key not found'}), 404
@@ -315,12 +337,12 @@ def refresh_api_key(key_id):
     """Refresh the value of an API key"""
     try:
         user_id = session.get('user_id')
-        user = User.query.get(user_id)
+        user = User.query.filter_by(user_id=user_id).first()
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        api_key = APIKey.query.filter_by(id=key_id, user_id=user_id).first()
+        api_key = APIKey.query.filter_by(id=key_id, user_id=user.id).first()
         
         if not api_key:
             return jsonify({'error': 'API key not found'}), 404
@@ -350,12 +372,12 @@ def delete_api_key(key_id):
     """Delete an API key"""
     try:
         user_id = session.get('user_id')
-        user = User.query.get(user_id)
+        user = User.query.filter_by(user_id=user_id).first()
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        api_key = APIKey.query.filter_by(id=key_id, user_id=user_id).first()
+        api_key = APIKey.query.filter_by(id=key_id, user_id=user.id).first()
         
         if not api_key:
             return jsonify({'error': 'API key not found'}), 404

@@ -1,4 +1,5 @@
 import os
+import pdb
 from flask import Flask, render_template, jsonify, url_for
 from flask_mail import Mail
 from dotenv import load_dotenv
@@ -43,6 +44,13 @@ def create_app(test_config=None):
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production')
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES', 3600))
     app.config['JWT_REFRESH_TOKEN_EXPIRES'] = int(os.getenv('JWT_REFRESH_TOKEN_EXPIRES', 604800))
+    
+    # Session configuration
+    app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+    app.config['SESSION_COOKIE_DOMAIN'] = None  # Allow cookies for localhost
     
     # Initialize extensions
     db.init_app(app)
@@ -101,76 +109,134 @@ def create_app(test_config=None):
             'environment': os.getenv('FLASK_ENV', 'development')
         })
     
+    @app.route('/api/session-debug')
+    def session_debug():
+        """Debug endpoint to check session state"""
+        from flask import session, request
+        from models import User, APIKey
+        
+        response_data = {
+            'session_data': dict(session),
+            'has_user_id': 'user_id' in session,
+            'user_id': session.get('user_id'),
+            'user_email': session.get('user_email'),
+            'cookies': dict(request.cookies),
+            'headers': dict(request.headers)
+        }
+        
+        # If user is logged in, also check their API keys
+        if 'user_id' in session:
+            user = User.query.get(session['user_id'])
+            if user:
+                api_keys = APIKey.query.filter_by(user_id=user.id).all()
+                response_data['api_keys_count'] = len(api_keys)
+                response_data['api_keys'] = [
+                    {
+                        'id': key.id,
+                        'key_name': key.key_name,
+                        'key_value': key.key_value,
+                        'state': key.state
+                    }
+                    for key in api_keys
+                ]
+        
+        return jsonify(response_data)
+    
     def render_error_page(title, message, status_code):
         """Render a user-friendly error page with automatic redirect"""
         return render_template('error.html', title=title, message=message), status_code
 
     @app.route('/user/<user_id>')
     def user_profile(user_id):
-        """User profile route - users can only access their own profile"""
+        """User profile route - server-rendered only, user can only view own profile."""
         from models import User
-        from auth_utils import verify_jwt_token
-        from flask import request
-        
-        # Get JWT token from Authorization header
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return render_error_page('Authentication Required', 
+        from flask import session
+
+        # Require login
+        if 'user_id' not in session:
+            return render_error_page('Authentication Required',
                 'You need to be logged in to access this page.', 401)
-        
-        token = auth_header.split(' ')[1]
-        
+
         try:
-            # Verify JWT token and get user info
-            payload = verify_jwt_token(token)
-            if not payload:
-                return render_error_page('Invalid Token', 
-                    'Your login session has expired. Please log in again.', 401)
-            
-            # Get the authenticated user
-            authenticated_user = User.query.filter_by(id=payload.get('user_id')).first()
+            # Resolve authenticated user by public user_id stored in session
+            authenticated_user = User.query.filter_by(user_id=session['user_id']).first()
             if not authenticated_user:
-                return render_error_page('User Not Found', 
+                return render_error_page('User Not Found',
                     'The requested user profile could not be found.', 404)
-            
-            # Set session for API key management
-            from flask import session
-            session['user_id'] = authenticated_user.id
-            session['user_email'] = authenticated_user.email
-            
+
+            # Enforce active status
             if not authenticated_user.is_active():
-                return render_error_page('Account Not Activated', 
+                return render_error_page('Account Not Activated',
                     'This account has not been activated yet.', 403)
-            
-            # Check if user is trying to access their own profile
+
+            # Enforce self-access
             if authenticated_user.user_id != user_id:
-                return render_error_page('Access Denied', 
+                return render_error_page('Access Denied',
                     'You can only view your own profile page.', 403)
-            
-            # Check if this is an AJAX request (for frontend JavaScript)
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                # Return JSON response for AJAX requests
-                return jsonify({
-                    'success': True,
-                    'user': {
-                        'email': authenticated_user.email,
-                        'user_id': authenticated_user.user_id,
-                        'status': authenticated_user.status,
-                        'created_at': authenticated_user.created_at.strftime('%B %d, %Y')
-                    }
-                })
-            
-            # Return HTML response for direct browser navigation
-            return render_template('user_profile.html', user={
+
+            # Prepare data for template
+            user_data = {
                 'email': authenticated_user.email,
                 'user_id': authenticated_user.user_id,
                 'status': authenticated_user.status,
                 'created_at': authenticated_user.created_at.strftime('%B %d, %Y')
-            })
-            
-        except Exception as e:
-            return render_error_page('Authentication Error', 
+            }
+
+            return render_template('user.html', user=user_data)
+
+        except Exception:
+            return render_error_page('Authentication Error',
                 'An error occurred while processing your request. Please try again.', 500)
+
+    @app.route('/keys/<user_id>')
+    def user_keys(user_id):
+        """Display all API keys for the authenticated user (server-rendered)."""
+        from models import User, APIKey
+        from flask import session
+
+        # Require login
+        if 'user_id' not in session:
+            return render_error_page('Authentication Required',
+                'You need to be logged in to access this page.', 401)
+
+        # Look up authenticated user by public user_id stored in session
+        authenticated_user = User.query.filter_by(user_id=session['user_id']).first()
+        if not authenticated_user:
+            return render_error_page('User Not Found',
+                'The requested user could not be found.', 404)
+
+        # Enforce user can only view their own keys
+        if authenticated_user.user_id != user_id:
+            return render_error_page('Access Denied',
+                'You can only view your own API keys.', 403)
+
+        # Must be active account
+        if not authenticated_user.is_active():
+            return render_error_page('Account Not Activated',
+                'This account has not been activated yet.', 403)
+
+        # Load API keys for this user (using internal DB id)
+        api_keys = APIKey.query.filter_by(user_id=authenticated_user.id).order_by(APIKey.created_at.desc()).all()
+
+        # Prepare data for template
+        keys_data = [
+            {
+                'id': k.id,
+                'key_name': k.key_name,
+                'key_value': k.key_value,
+                'state': k.state,
+                'created_at': k.created_at,
+                'last_used': k.last_used,
+            }
+            for k in api_keys
+        ]
+
+        user_data = {
+            'email': authenticated_user.email,
+            'user_id': authenticated_user.user_id,
+        }
+
+        return render_template('keys.html', user=user_data, api_keys=keys_data)
     
     @app.route('/init-db')
     def init_database():

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}API Keys - {{ user.email }}{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <div class="auth-header">
+        <h1>🔑 Your API Keys</h1>
+        <p>Manage the keys associated with your account</p>
+    </div>
+
+    <div class="profile-info">
+        <div class="info-item">
+            <span class="info-label">User:</span>
+            <span class="info-value">{{ user.email }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">User ID:</span>
+            <span class="info-value">{{ user.user_id }}</span>
+        </div>
+    </div>
+
+    <div class="api-keys-section">
+        <div class="section-header">
+            <h2>API Keys</h2>
+        </div>
+
+        {% if api_keys and api_keys|length > 0 %}
+            <div class="api-keys-list">
+                {% for key in api_keys %}
+                    <div class="api-key-item">
+                        <div class="key-info">
+                            <div class="key-name">{{ key.key_name }}</div>
+                            <div class="key-value">{{ key.key_value }}</div>
+                            <div class="key-status {{ key.state }}">{{ key.state }}</div>
+                        </div>
+                        <div class="key-meta">
+                            <div class="meta-item">Created: {{ key.created_at.strftime('%b %d, %Y %H:%M') if key.created_at }}</div>
+                            <div class="meta-item">Last used: {{ key.last_used.strftime('%b %d, %Y %H:%M') if key.last_used else '—' }}</div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-keys">No API keys yet.</div>
+        {% endif %}
+    </div>
+
+    <div class="auth-footer">
+        <p>
+            <a href="{{ url_for('user_profile', user_id=user.user_id) }}" class="btn btn-secondary">Back to Profile</a>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-primary">Logout</a>
+        </p>
+        <p><a href="{{ url_for('home') }}" class="home-link">← Back to Home</a></p>
+    </div>
+</div>
+{% endblock %}
+
+

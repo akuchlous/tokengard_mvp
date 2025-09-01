@@ -10,7 +10,7 @@
         <p>Sign in to your TokenGuard account</p>
     </div>
     
-    <form id="loginForm" class="auth-form">
+    <form id="loginForm" class="auth-form" method="post" action="{{ url_for('auth.login') }}">
         <div class="form-group">
             <label for="email" class="form-label">Email Address</label>
             <input type="email" id="email" name="email" class="form-input" required>
@@ -39,27 +39,4 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
-<script>
-// Debug script to check if JavaScript is working
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, checking login form...');
-    const form = document.getElementById('loginForm');
-    if (form) {
-        console.log('Login form found:', form);
-        console.log('AuthManager available:', !!window.authManager);
-        
-        // Add a backup event listener in case the main one fails
-        form.addEventListener('submit', function(e) {
-            console.log('Backup login form submit handler triggered');
-            if (!window.authManager || !window.authManager.currentForm) {
-                console.log('AuthManager not ready, preventing default submission');
-                e.preventDefault();
-                alert('Please wait for the page to fully load and try again.');
-            }
-        });
-    }
-});
-</script>
-{% endblock %}
+{% block extra_js %}{% endblock %}

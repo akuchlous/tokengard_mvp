@@ -2,13 +2,14 @@
 """
 Test the authentication fix by bypassing activation requirement
 """
-import requests
 import json
+import time
+from app import app as flask_app
 
 def test_auth_fix():
     """Test the authentication fix"""
     
-    base_url = "http://localhost:5000"
+    client = flask_app.test_client()
     
     print("🧪 Testing the authentication fix...")
     print("=" * 50)
@@ -20,11 +21,11 @@ def test_auth_fix():
         'password': 'TestPass123!'
     }
     
-    response = requests.post(f"{base_url}/auth/register", json=register_data)
+    response = client.post("/auth/register", json=register_data)
     print(f"   Registration: {response.status_code}")
     
     if response.status_code == 201:
-        user_data = response.json()
+        user_data = response.get_json()
         user_id = user_data['user_id']
         print(f"   ✅ User created: {user_id}")
     else:
@@ -41,13 +42,12 @@ def test_auth_fix():
     print("   💡 User needs activation to test login flow")
     print("   The authentication fix handles this in the frontend")
     
-    # Step 3: Test the profile access directly
-    profile_url = f"{base_url}/user/{user_id}"
-    print(f"\n3️⃣ Testing profile access: {profile_url}")
+    # Step 3: Test the profile access directly (without session)
+    print(f"\n3️⃣ Testing profile access: /user/{user_id}")
     
-    # Without token (should get 401)
-    print("   Testing WITHOUT token...")
-    response = requests.get(profile_url)
+    # Without session (should get 401)
+    print("   Testing WITHOUT session...")
+    response = client.get(f"/user/{user_id}")
     print(f"   Response: {response.status_code}")
     
     if response.status_code == 401:

@@ -1047,6 +1047,190 @@ body {
 }
 
 /* ==========================================================================
+   API Key Management Styles - User profile API key section
+   ========================================================================== */
+.api-keys-section {
+    margin: var(--spacing-lg) 0;
+    padding: var(--spacing-lg);
+    background: var(--background-secondary);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.section-header h2 {
+    color: var(--text-primary);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    margin: 0;
+}
+
+.api-key-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm) 0;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    transition: all var(--transition-normal);
+}
+
+.api-key-item:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary-color);
+}
+
+.key-info {
+    flex: 1;
+    margin-right: var(--spacing-md);
+}
+
+.key-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+    margin-bottom: var(--spacing-xs);
+}
+
+.key-value {
+    font-family: 'Courier New', monospace;
+    background: var(--background-tertiary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    word-break: break-all;
+    margin-bottom: var(--spacing-xs);
+}
+
+.key-status {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.key-status.enabled {
+    background: var(--success-light);
+    color: var(--success-dark);
+}
+
+.key-status.disabled {
+    background: var(--error-light);
+    color: var(--error-dark);
+}
+
+.key-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.key-actions .btn {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    min-width: auto;
+}
+
+.loading {
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+    padding: var(--spacing-lg);
+}
+
+.no-keys {
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: var(--spacing-lg);
+}
+
+.error-message {
+    background: var(--error-light);
+    color: var(--error-dark);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--error-color);
+    margin: var(--spacing-md) 0;
+}
+
+/* Button variants for API key management */
+.btn-warning {
+    background: var(--warning-color);
+    color: white;
+    border-color: var(--warning-color);
+}
+
+.btn-warning:hover {
+    background: var(--warning-dark);
+    border-color: var(--warning-dark);
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: white;
+    border-color: var(--success-color);
+}
+
+.btn-success:hover {
+    background: var(--success-dark);
+    border-color: var(--success-dark);
+}
+
+.btn-danger {
+    background: var(--error-color);
+    color: white;
+    border-color: var(--error-color);
+}
+
+.btn-danger:hover {
+    background: var(--error-dark);
+    border-color: var(--error-dark);
+}
+
+/* Responsive design for API key management */
+@media (max-width: 768px) {
+    .api-key-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-md);
+    }
+    
+    .key-info {
+        margin-right: 0;
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .key-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+    .section-header {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        align-items: stretch;
+    }
+    
+    .section-header h2 {
+        text-align: center;
+    }
+}
+
+/* ==========================================================================
    Print Styles - Optimized for printing
    ========================================================================== */
 @media print {
@@ -1073,5 +1257,9 @@ body {
     .auth-container {
         box-shadow: none;
         border: 1px solid var(--border-color);
+    }
+    
+    .api-keys-section {
+        display: none;
     }
 }
