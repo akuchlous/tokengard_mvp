@@ -168,312 +168,68 @@ def session_debug():
 @api_bp.route('/proxy', methods=['POST'])
 def proxy_endpoint():
     """
-    Proxy endpoint that validates API key and processes text with comprehensive logging.
+    LLM Proxy endpoint that processes requests through the proxy architecture.
     
-    SECURITY FEATURES:
-    - Input validation and sanitization
-    - Rate limiting protection
-    - Comprehensive error handling
-    - Security logging and monitoring
-    - Request size limits
+    FEATURES:
+    - Policy validation (API key, banned keywords, security checks)
+    - Cache lookup for existing responses
+    - LLM service integration (stub implementation)
+    - Comprehensive logging and metrics
+    - Rate limiting and security monitoring
     
     Expects JSON payload with:
     - api_key: The API key to validate (required)
     - text: The text to process (optional, max 10KB)
+    - model: LLM model to use (optional, default: 'default')
+    - temperature: Temperature setting (optional, default: 0.7)
     
     Returns:
-    - {"status": "key_pass", "message": "API key is valid"} if key is active
-    - {"status": "key_error", "message": "API key is invalid or inactive"} if key is invalid/inactive
-    - {"status": "content_error", "message": "Content blocked"} if content violates rules
+    - {"success": true, "data": {...}} if successful
+    - {"success": false, "error_code": "...", "message": "..."} if failed
     """
-    # Start timing for performance metrics
-    start_time = time.time()
-    request_id = str(uuid.uuid4())
-    
-    # Get request metadata for logging
+    # Get request metadata
     client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
     user_agent = request.headers.get('User-Agent')
     
-    # SECURITY CHECK 1: Request size limit (10KB max)
-    content_length = request.content_length or 0
-    if content_length > 10240:  # 10KB limit
-        current_app.logger.warning(f"Large request blocked from {client_ip}: {content_length} bytes")
-        return jsonify({
-            'status': 'key_error',
-            'message': 'Request too large. Maximum 10KB allowed.',
-            'error_code': 'REQUEST_TOO_LARGE'
-        }), 413
+    # Use shared validation utilities
+    from ..utils.api_utils import request_validator, rate_limiter, response_formatter
     
-    # SECURITY CHECK 2: Rate limiting (basic implementation)
-    # In production, use Flask-Limiter or Redis-based rate limiting
-    if not hasattr(current_app, 'proxy_request_counts'):
-        current_app.proxy_request_counts = {}
+    # SECURITY CHECK 1: Request size limit
+    is_valid_size, size_error = request_validator.validate_request_size(client_ip)
+    if not is_valid_size:
+        return jsonify(size_error), 413
     
-    current_time = int(time.time())
-    minute_key = f"{client_ip}_{current_time // 60}"
+    # SECURITY CHECK 2: Rate limiting
+    is_allowed, rate_error = rate_limiter.check_rate_limit(client_ip)
+    if not is_allowed:
+        return jsonify(rate_error), 429
     
-    if minute_key in current_app.proxy_request_counts:
-        current_app.proxy_request_counts[minute_key] += 1
-    else:
-        current_app.proxy_request_counts[minute_key] = 1
+    # Validate JSON request
+    is_valid_json, data, json_error = request_validator.validate_json_request(client_ip)
+    if not is_valid_json:
+        return jsonify(json_error), 400
     
-    # Clean old entries (older than 5 minutes)
-    old_keys = [k for k in current_app.proxy_request_counts.keys() 
-                if int(k.split('_')[-1]) < (current_time // 60) - 5]
-    for old_key in old_keys:
-        del current_app.proxy_request_counts[old_key]
+    # Validate API key
+    is_valid_key, api_key, key_error = request_validator.validate_api_key(data, client_ip)
+    if not is_valid_key:
+        return jsonify(key_error), 400
     
-    # Check rate limit (100 requests per minute per IP)
-    if current_app.proxy_request_counts[minute_key] > 100:
-        current_app.logger.warning(f"Rate limit exceeded for {client_ip}: {current_app.proxy_request_counts[minute_key]} requests")
-        return jsonify({
-            'status': 'key_error',
-            'message': 'Rate limit exceeded. Maximum 100 requests per minute.',
-            'error_code': 'RATE_LIMIT_EXCEEDED'
-        }), 429
-    
-    # Get JSON data from request with proper error handling
-    try:
-        data = request.get_json(force=True)  # Force JSON parsing
-    except Exception as e:
-        current_app.logger.warning(f"Invalid JSON from {client_ip}: {str(e)}")
-        return jsonify({
-            'status': 'key_error',
-            'message': 'Invalid JSON format. Request must be valid JSON.',
-            'error_code': 'INVALID_JSON'
-        }), 400
-    
-    # Initialize response variables
-    response_status = 'key_error'
-    response_body = None
-    response_code = 400
-    key_record = None
+    # Process request through LLM proxy
+    from ..utils.llm_proxy import llm_proxy
     
     try:
-        if not data:
-            current_app.logger.warning(f"Empty request body from {client_ip}")
-            return jsonify({
-                'status': 'key_error',
-                'message': 'Invalid request format. JSON payload required.',
-                'error_code': 'MISSING_JSON'
-            }), 400
+        proxy_response = llm_proxy.process_request(data, client_ip, user_agent)
         
-        # SECURITY CHECK 3: Input validation and sanitization
-        if not isinstance(data, dict):
-            current_app.logger.warning(f"Invalid data type from {client_ip}: {type(data)}")
-            return jsonify({
-                'status': 'key_error',
-                'message': 'Request data must be a JSON object.',
-                'error_code': 'INVALID_DATA_TYPE'
-            }), 400
-        
-        # Get API key from either JSON payload or X-API-Key header
-        api_key = data.get('api_key', '').strip()
-        if not api_key:
-            api_key = request.headers.get('X-API-Key', '').strip()
-        
-        text = data.get('text', '')
-        
-        # SECURITY CHECK 4: API key validation
-        if not api_key:
-            current_app.logger.warning(f"Missing API key from {client_ip}")
-            return jsonify({
-                'status': 'key_error',
-                'message': 'API key is required. Provide api_key in JSON payload or X-API-Key header.',
-                'error_code': 'MISSING_API_KEY'
-            }), 400
-        
-        # SECURITY CHECK 5: API key format validation
-        if len(api_key) < 10 or len(api_key) > 200:
-            current_app.logger.warning(f"Invalid API key length from {client_ip}: {len(api_key)}")
-            return jsonify({
-                'status': 'key_error',
-                'message': 'API key format is invalid.',
-                'error_code': 'INVALID_API_KEY_FORMAT'
-            }), 400
-        
-        # SECURITY CHECK 6: Text content validation
-        if text and len(text) > 10000:  # 10KB text limit
-            current_app.logger.warning(f"Text too long from {client_ip}: {len(text)} characters")
-            return jsonify({
-                'status': 'content_error',
-                'message': 'Text content too long. Maximum 10,000 characters allowed.',
-                'error_code': 'TEXT_TOO_LONG'
-            }), 400
-        
-        # SECURITY CHECK 7: Check for suspicious patterns in API key
-        if any(char in api_key for char in ['<', '>', '"', "'", '&', ';', '(', ')']):
-            current_app.logger.warning(f"Suspicious API key pattern from {client_ip}")
-            return jsonify({
-                'status': 'key_error',
-                'message': 'API key contains invalid characters.',
-                'error_code': 'INVALID_API_KEY_CHARS'
-            }), 400
-        
-        # Look up the API key in the database
-        key_record = APIKey.query.filter_by(key_value=api_key).first()
-        
-        if not key_record:
-            current_app.logger.warning(f"API key not found from {client_ip}: {api_key[:10]}...")
-            return jsonify({
-                'status': 'key_error',
-                'message': 'API key not found.',
-                'error_code': 'API_KEY_NOT_FOUND'
-            }), 401
-        elif key_record.state.lower() != 'enabled':
-            current_app.logger.warning(f"Inactive API key used from {client_ip}: {api_key[:10]}...")
-            return jsonify({
-                'status': 'key_error',
-                'message': 'API key is inactive.',
-                'error_code': 'API_KEY_INACTIVE'
-            }), 401
+        # Convert to appropriate response format
+        if proxy_response.success:
+            return jsonify(proxy_response.to_dict()), proxy_response.status_code
         else:
-            # Key is valid and active - now check content rules
-            user = key_record.user
+            return jsonify(proxy_response.to_dict()), proxy_response.status_code
             
-            # Check if user account is active
-            if user.status != 'active':
-                current_app.logger.warning(f"Inactive user account from {client_ip}: user_id={user.id}")
-                return jsonify({
-                    'status': 'key_error',
-                    'message': 'User account is inactive.',
-                    'error_code': 'USER_ACCOUNT_INACTIVE'
-                }), 401
-            
-            # Check banned keywords
-            if text:
-                is_banned, banned_keyword = BannedKeyword.check_banned(user.id, text)
-                if is_banned:
-                    current_app.logger.info(f"Banned keyword detected from {client_ip}: '{banned_keyword}'")
-                    return jsonify({
-                        'status': 'content_error',
-                        'message': f'Content contains banned keyword: {banned_keyword}',
-                        'banned_keyword': banned_keyword,
-                        'error_code': 'BANNED_KEYWORD'
-                    }), 400
-                else:
-                    # Placeholder for external API call
-                    try:
-                        external_check_result = check_external_api(text)
-                        if external_check_result['blocked']:
-                            current_app.logger.info(f"External API blocked content from {client_ip}: {external_check_result['reason']}")
-                            return jsonify({
-                                'status': 'content_error',
-                                'message': f'Content blocked by external service: {external_check_result["reason"]}',
-                                'external_reason': external_check_result['reason'],
-                                'error_code': 'EXTERNAL_API_BLOCKED'
-                            }), 400
-                        else:
-                            # Content passed all checks
-                            response_status = 'key_pass'
-                            response_body = json.dumps({
-                                'status': 'key_pass',
-                                'message': 'API key is valid and content passed all checks.',
-                                'key_name': key_record.key_name,
-                                'text_length': len(text) if text else 0,
-                                'external_check': external_check_result,
-                                'request_id': request_id
-                            })
-                            response_code = 200
-                    except Exception as external_error:
-                        current_app.logger.error(f"External API check failed from {client_ip}: {str(external_error)}")
-                        return jsonify({
-                            'status': 'key_error',
-                            'message': 'External content check failed. Please try again.',
-                            'error_code': 'EXTERNAL_API_ERROR'
-                        }), 500
-            else:
-                # No text to check, just validate key
-                response_status = 'key_pass'
-                response_body = json.dumps({
-                    'status': 'key_pass',
-                    'message': 'API key is valid.',
-                    'key_name': key_record.key_name,
-                    'text_length': 0,
-                    'request_id': request_id
-                })
-                response_code = 200
-            
-            # Update last_used timestamp only if request was successful
-            if response_code == 200:
-                try:
-                    key_record.update_last_used()
-                    db.session.commit()
-                except Exception as update_error:
-                    current_app.logger.error(f"Failed to update last_used for key {api_key[:10]}...: {str(update_error)}")
-                    # Don't fail the request if timestamp update fails
-    
     except Exception as e:
-        # Handle any unexpected errors
-        current_app.logger.error(f"Unexpected error in proxy endpoint from {client_ip}: {str(e)}", exc_info=True)
-        return jsonify({
-            'status': 'key_error',
-            'message': 'Internal server error. Please try again later.',
-            'error_code': 'INTERNAL_SERVER_ERROR',
-            'request_id': request_id
-        }), 500
-    
-    finally:
-        # Calculate processing time
-        processing_time_ms = max(1, int((time.time() - start_time) * 1000))  # Ensure at least 1ms
-        
-        # Log the request/response (only if we have a key record or attempted to use a key)
-        if key_record or (data and data.get('api_key')):
-            try:
-                # Create log entry
-                if key_record:
-                    # Valid key record exists
-                    log_entry = ProxyLog.create_log(
-                        api_key=key_record,
-                        request_body=json.dumps(data) if data else None,
-                        response_status=response_status,
-                        response_body=response_body,
-                        client_ip=client_ip,
-                        user_agent=user_agent,
-                        request_id=request_id,
-                        processing_time_ms=processing_time_ms
-                    )
-                else:
-                    # No key record found, but we want to log the attempt
-                    attempted_key = data.get('api_key', '')[:64]  # Truncate if too long
-                    log_entry = ProxyLog(
-                        api_key_id=None,  # No valid key record
-                        api_key_value=attempted_key,
-                        request_body=json.dumps(data) if data else None,
-                        response_status=response_status,
-                        response_body=response_body,
-                        client_ip=client_ip,
-                        user_agent=user_agent,
-                        request_id=request_id,
-                        processing_time_ms=processing_time_ms
-                    )
-                    db.session.add(log_entry)
-                
-                # Commit the log entry
-                db.session.commit()
-                
-            except Exception as log_error:
-                # Don't fail the request if logging fails
-                current_app.logger.error(f"Failed to log proxy request: {log_error}")
-                db.session.rollback()
-    
-    # Return the response
-    if response_body:
-        try:
-            return jsonify(json.loads(response_body)), response_code
-        except json.JSONDecodeError:
-            # Fallback if response_body is not valid JSON
-            return jsonify({
-                'status': 'key_error',
-                'message': 'Invalid response format',
-                'error_code': 'INVALID_RESPONSE'
-            }), 500
-    else:
-        return jsonify({
-            'status': 'key_error',
-            'message': 'No response generated',
-            'error_code': 'NO_RESPONSE'
-        }), 500
+        current_app.logger.error(f"Error in proxy endpoint: {str(e)}", exc_info=True)
+        error_response = response_formatter.format_server_error_response()
+        return jsonify(error_response), 500
 
 
 @api_bp.route('/logs', methods=['GET'])
@@ -884,3 +640,126 @@ def clear_database():
         db.session.rollback()
         current_app.logger.error(f"Database clear failed: {str(e)}")
         return jsonify({'error': f'Failed to clear database: {str(e)}'}), 500
+
+
+@api_bp.route('/cache/stats', methods=['GET'])
+def get_cache_stats():
+    """Get cache statistics."""
+    try:
+        from ..utils.llm_proxy import llm_proxy
+        stats = llm_proxy.get_cache_stats()
+        return jsonify(stats), 200
+    except Exception as e:
+        return jsonify({'error': f'Failed to get cache stats: {str(e)}'}), 500
+
+
+@api_bp.route('/cache/clear', methods=['POST'])
+def clear_cache():
+    """Clear the cache (for testing/demo purposes only)."""
+    # Only allow in test/development environments
+    app_env = current_app.config.get('ENV', 'development')
+    env_var = os.getenv('FLASK_ENV', 'development')
+    
+    if app_env == 'production' or env_var == 'production':
+        return jsonify({'error': 'Cache clearing not allowed in production'}), 403
+    
+    allowed_envs = ['test', 'testing', 'development']
+    if env_var not in allowed_envs and app_env not in allowed_envs:
+        return jsonify({'error': 'Cache clearing only allowed in test/development environments'}), 403
+    
+    try:
+        from ..utils.llm_proxy import llm_proxy
+        success = llm_proxy.clear_cache()
+        if success:
+            return jsonify({'message': 'Cache cleared successfully'}), 200
+        else:
+            return jsonify({'error': 'Failed to clear cache'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Failed to clear cache: {str(e)}'}), 500
+
+
+@api_bp.route('/metrics', methods=['GET'])
+def get_metrics():
+    """Get proxy metrics."""
+    try:
+        from ..utils.llm_proxy import llm_proxy
+        minutes = request.args.get('minutes', 60, type=int)
+        metrics = llm_proxy.get_metrics(minutes)
+        return jsonify(metrics), 200
+    except Exception as e:
+        return jsonify({'error': f'Failed to get metrics: {str(e)}'}), 500
+
+
+@api_bp.route('/cache/invalidate/<api_key>', methods=['POST'])
+def invalidate_user_cache(api_key):
+    """Invalidate cache for a specific user."""
+    try:
+        from ..utils.llm_proxy import llm_proxy
+        count = llm_proxy.invalidate_user_cache(api_key)
+        return jsonify({
+            'message': f'Invalidated {count} cache entries for user',
+            'invalidated_count': count
+        }), 200
+    except Exception as e:
+        return jsonify({'error': f'Failed to invalidate user cache: {str(e)}'}), 500
+
+
+@api_bp.route('/policy', methods=['POST'])
+def policy_check_endpoint():
+    """
+    Direct policy check endpoint for validating API keys and content.
+    
+    This endpoint can be called independently to check policies without
+    going through the full LLM proxy pipeline.
+    
+    Expects JSON payload with:
+    - api_key: The API key to validate (required)
+    - text: The text to check (required)
+    
+    Returns:
+    - {"success": true, "data": {...}} if all checks pass
+    - {"success": false, "error_code": "...", "message": "..."} if checks fail
+    """
+    # Get request metadata
+    client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
+    user_agent = request.headers.get('User-Agent')
+    
+    # Use shared validation utilities
+    from ..utils.api_utils import request_validator, response_formatter
+    
+    # Validate JSON request
+    is_valid_json, data, json_error = request_validator.validate_json_request(client_ip)
+    if not is_valid_json:
+        return jsonify(json_error), 400
+    
+    # Validate API key
+    is_valid_key, api_key, key_error = request_validator.validate_api_key(data, client_ip)
+    if not is_valid_key:
+        return jsonify(key_error), 400
+    
+    # Validate text content (required for policy checks)
+    is_valid_text, text, text_error = request_validator.validate_text_content(data, client_ip, required=True)
+    if not is_valid_text:
+        return jsonify(text_error), 400
+    
+    # Run policy checks
+    from ..utils.policy_checks import policy_checker
+    
+    try:
+        policy_result = policy_checker.run_all_checks(api_key, text, client_ip)
+        
+        if policy_result.passed:
+            # All checks passed
+            response_data = response_formatter.format_policy_success_response(policy_result, text)
+            return jsonify(response_data), 200
+        else:
+            # Policy check failed
+            response_data, status_code = response_formatter.format_policy_failure_response(policy_result, text)
+            return jsonify(response_data), status_code
+            
+    except Exception as e:
+        current_app.logger.error(f"Error in policy check endpoint: {str(e)}", exc_info=True)
+        error_response = response_formatter.format_server_error_response(
+            message='Internal server error during policy validation. Please try again later.'
+        )
+        return jsonify(error_response), 500
