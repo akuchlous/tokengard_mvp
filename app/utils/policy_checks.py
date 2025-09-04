@@ -1,4 +1,15 @@
 """
+Policy checks for proxy requests.
+
+Provides `PolicyChecker`, which aggregates validations:
+- API key existence, format, and active state.
+- User active status linked to the API key.
+- Banned keyword scanning of user-managed keyword lists.
+- External safety checks (length limits, repetition, basic heuristics).
+
+The checker returns structured results suitable for API response formatting.
+"""
+"""
 Policy Checks Module
 
 FLOW OVERVIEW

@@ -1,4 +1,12 @@
 """
+Authentication routes.
+
+Endpoints for register, activate, login, logout, forgot-password, and
+reset-password flows. Uses utilities from `auth_utils` and models for
+token generation, validation, and user status updates. HTML templates
+render forms; JSON helpers are used where appropriate for testing.
+"""
+"""
 Authentication Routes
 
 FLOW OVERVIEW

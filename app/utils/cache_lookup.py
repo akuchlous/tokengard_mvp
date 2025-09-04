@@ -1,4 +1,22 @@
 """
+Cache and semantic lookup utilities.
+
+This module provides two layers:
+- CacheLookup: an in-memory TTL cache with eviction policy and stats.
+- LLMCacheLookup: a semantic cache that stores prompt embeddings and
+  responses and retrieves by cosine similarity above a configured threshold.
+
+Key APIs:
+- CacheLookup.set/get/delete/clear/cleanup/stats
+- LLMCacheLookup.cache_llm_response(api_key, request, response, ttl)
+- LLMCacheLookup.get_llm_response(api_key, request) -> (found, payload)
+
+Design notes:
+- Namespacing by api_key isolates tenants.
+- Similarity is computed between embedding vectors using cosine similarity.
+- Embedding model is pluggable; tests inject a dummy model.
+"""
+"""
 Semantic Cache Layer for LLM Proxy
 
 FLOW OVERVIEW

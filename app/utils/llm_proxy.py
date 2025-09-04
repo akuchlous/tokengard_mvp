@@ -1,25 +1,19 @@
 """
-LLM Proxy Orchestrator
+LLM Proxy orchestration.
 
-FLOW OVERVIEW
-1) process_request(request_data, client_ip, user_agent)
-   - Log incoming request and extract api_key/text/model/temperature.
-   - Run policy checks (key validity, banned keywords, etc.). If failed, format and return error.
-   - Query semantic cache via `llm_cache_lookup.get_llm_response(...)`.
-     • On hit: format success including cache_info (similarity, cached_at, cache_key) and return.
-   - On miss: call underlying LLM service (stub), format success, and cache via `cache_llm_response`.
-   - Log response and record metrics (tokens, cost, cache hit/savings).
+Coordinates policy checks, cache lookup, outbound LLM calls, logging, and
+response formatting for the `/api/proxy` endpoint. The typical flow is:
 
-2) _call_llm_service(text, model, temperature)
-   - Stub: simulates a completion payload and token usage.
+1) Validate request shape and size; normalize inputs.
+2) Run PolicyChecker for API key validity, banned keywords, and security rules.
+3) Query LLMCacheLookup for a semantic hit; if found, return cached result.
+4) On cache miss, call the configured LLM provider, capture response, and
+   persist via cache_llm_response for future semantic hits.
+5) Persist a ProxyLog entry and update metrics; format the response payload.
 
-3) get_cache_stats / get_metrics / clear_cache / invalidate_user_cache
-   - Utility methods to introspect and maintain the proxy.
-
-MODULES USED
-- policy_checks: Validates keys, users, and banned keywords.
-- cache_lookup: Performs semantic cache lookup and storage with embeddings.
-- proxy_logger: Persists ProxyLog and emits token/cost metrics.
+Extensibility:
+- Swap out embedding model or LLM provider.
+- Adjust thresholds, TTLs, and policy configuration via app config.
 """
 
 import time

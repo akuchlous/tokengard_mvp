@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-TokenGuard Application Entry Point
+TokenGuard application entry point.
 
-FLOW OVERVIEW
-- Reads environment to select configuration (testing vs default).
-- Instantiates Flask app via `create_app(...)`.
-- For in-memory/testing DB, creates tables on startup for fast e2e and unit tests.
-- Runs the development server if executed as __main__.
+This module selects configuration based on environment variables, creates the
+Flask application via `create_app`, and eagerly initializes an in-memory
+database for testing modes. When executed directly, it runs the development
+server. In production, a WSGI server should import `app` from this module.
+
+Environment variables of interest:
+- FLASK_ENV: if set to 'testing', enables in-memory DB and testing flags.
+- DATABASE_URL: if set to 'sqlite:///:memory:' forces in-memory DB init.
+- SECRET_KEY, JWT_SECRET_KEY, mail settings: consumed by `create_app`.
 """
 
 import os

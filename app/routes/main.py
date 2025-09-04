@@ -1,4 +1,10 @@
 """
+Main site routes.
+
+Serves index, health/status endpoints, and shared pages. These routes are
+lightweight and are used by both users and tests (e.g., availability checks).
+"""
+"""
 Main Routes
 
 FLOW OVERVIEW

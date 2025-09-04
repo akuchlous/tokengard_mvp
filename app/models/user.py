@@ -1,4 +1,11 @@
 """
+User model.
+
+Represents application users with email, password hash, status, and
+timestamps. Relationships to API keys, banned keywords, and token models
+are declared for authentication and policy features.
+"""
+"""
 User and Token Models
 
 FLOW OVERVIEW

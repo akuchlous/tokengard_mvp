@@ -1,4 +1,11 @@
 """
+JSON API routes.
+
+Provides `/api/proxy` for LLM proxying, returning structured JSON responses.
+Relies on `api_utils` for validation/formatting, `policy_checks` for safety,
+`llm_proxy` for orchestration, and `proxy_logger` for persistence.
+"""
+"""
 API Routes
 
 FLOW OVERVIEW
