@@ -1,14 +1,25 @@
 """
-LLM Proxy Module
+LLM Proxy Orchestrator
 
-This module implements the main LLM proxy functionality that:
-- Validates requests using policy checks
-- Checks cache for existing responses
-- Forwards requests to LLM services (stub implementation)
-- Logs all requests and responses
-- Returns cached or fresh responses
+FLOW OVERVIEW
+1) process_request(request_data, client_ip, user_agent)
+   - Log incoming request and extract api_key/text/model/temperature.
+   - Run policy checks (key validity, banned keywords, etc.). If failed, format and return error.
+   - Query semantic cache via `llm_cache_lookup.get_llm_response(...)`.
+     • On hit: format success including cache_info (similarity, cached_at, cache_key) and return.
+   - On miss: call underlying LLM service (stub), format success, and cache via `cache_llm_response`.
+   - Log response and record metrics (tokens, cost, cache hit/savings).
 
-This is the main orchestrator that uses policy_checks, cache_lookup, and proxy_logger.
+2) _call_llm_service(text, model, temperature)
+   - Stub: simulates a completion payload and token usage.
+
+3) get_cache_stats / get_metrics / clear_cache / invalidate_user_cache
+   - Utility methods to introspect and maintain the proxy.
+
+MODULES USED
+- policy_checks: Validates keys, users, and banned keywords.
+- cache_lookup: Performs semantic cache lookup and storage with embeddings.
+- proxy_logger: Persists ProxyLog and emits token/cost metrics.
 """
 
 import time
@@ -20,6 +31,7 @@ from flask import request, current_app
 from .policy_checks import policy_checker, PolicyCheckResult
 from .cache_lookup import llm_cache_lookup
 from .proxy_logger import proxy_logger, metrics_collector
+from .token_utils import count_tokens as tk_count_tokens, estimate_cost as tk_estimate_cost
 
 
 class LLMProxyResponse:
@@ -80,8 +92,8 @@ class LLMProxy:
             # Extract API key and text
             api_key = request_data.get('api_key', '').strip()
             text = request_data.get('text', '')
-            model = request_data.get('model', 'default')
-            temperature = request_data.get('temperature', 0.7)
+            model = (request_data.get('model') or 'gpt-4o')
+            temperature = request_data.get('temperature') if request_data.get('temperature') is not None else 0.7
             
             # 1. Policy checks
             policy_result = policy_checker.run_all_checks(api_key, text, client_ip)
@@ -111,10 +123,18 @@ class LLMProxy:
             # Get validated data from policy check
             api_key_record = policy_result.details['api_key_record']
             user = policy_result.details['user']
+            # Cache scope is per-user (multiple API keys share a cache)
+            user_scope = getattr(user, 'user_id', None) or str(user.id)
             
-            # 2. Check cache
+            # 2. Token count for input using tiktoken
+            try:
+                input_tokens = tk_count_tokens(text or '', model)
+            except Exception:
+                input_tokens = 0
+
+            # 3. Check cache
             cache_found, cached_response = llm_cache_lookup.get_llm_response(
-                api_key, request_data, model, temperature
+                user_scope, request_data, model, temperature
             )
             
             if cache_found:
@@ -125,11 +145,33 @@ class LLMProxy:
                     'cached_at': cached_response['cached_at'],
                     'cache_key': cached_response['cache_key']
                 }
+                if 'similarity' in cached_response:
+                    cache_info['similarity'] = cached_response['similarity']
                 
                 response_data_dict = response_formatter.format_proxy_success_response(
                     api_key_record, text, response_data, model, temperature, 
                     cached=True, cache_info=cache_info
                 )
+
+                # Attach token and cost metadata (input only for cache hits)
+                token_info = {
+                    'input_tokens': input_tokens,
+                    'output_tokens': 0,
+                    'total_tokens': input_tokens,
+                }
+                cost_info = {
+                    'cache_hit': True,
+                    'input_cost': tk_estimate_cost(input_tokens, model, is_output=False),
+                    'output_cost': 0.0,
+                    'actual_cost': 0.0,
+                    'cost_saved': tk_estimate_cost(input_tokens, model, is_output=False),
+                }
+                response_data_dict['data']['tokens'] = token_info
+                response_data_dict['data']['estimated_cost'] = {
+                    'input': cost_info['input_cost'],
+                    'output': cost_info['output_cost'],
+                    'total': cost_info['actual_cost']
+                }
                 
                 response = LLMProxyResponse(
                     success=True,
@@ -143,19 +185,20 @@ class LLMProxy:
                 proxy_logger.log_response(request_id, response.to_dict(), 
                                         response.status_code, processing_time,
                                         api_key_record, client_ip, user_agent, data=request_data,
-                                        model=model, from_cache=True)
+                                        model=model, from_cache=True,
+                                        token_info=token_info, cost_info=cost_info)
                 metrics_collector.record_request('/api/proxy', response.status_code, 
                                                processing_time, client_ip)
                 
                 return response
             
-            # 3. Forward to LLM service (stub implementation)
+            # 4. Forward to LLM service (stub implementation)
             llm_response = self._call_llm_service(text, model, temperature)
             
             if llm_response['success']:
                 # Cache the response
                 llm_cache_lookup.cache_llm_response(
-                    api_key, request_data, llm_response['data'], 
+                    user_scope, request_data, llm_response['data'], 
                     ttl=3600, model=model, temperature=temperature
                 )
                 
@@ -163,6 +206,41 @@ class LLMProxy:
                 response_data_dict = response_formatter.format_proxy_success_response(
                     api_key_record, text, llm_response['data'], model, temperature, cached=False
                 )
+
+                # Count output tokens and estimate costs
+                try:
+                    # Extract assistant text for token counting
+                    choices = llm_response['data'].get('choices', [])
+                    output_text = ''
+                    if choices:
+                        msg = choices[0].get('message', {})
+                        output_text = msg.get('content', '')
+                    output_tokens = tk_count_tokens(output_text or '', model)
+                except Exception:
+                    output_tokens = 0
+
+                total_tokens = input_tokens + output_tokens
+                input_cost = tk_estimate_cost(input_tokens, model, is_output=False)
+                output_cost = tk_estimate_cost(output_tokens, model, is_output=True)
+                total_cost = round(input_cost + output_cost, 6)
+
+                token_info = {
+                    'input_tokens': input_tokens,
+                    'output_tokens': output_tokens,
+                    'total_tokens': total_tokens,
+                }
+                cost_info = {
+                    'cache_hit': False,
+                    'input_cost': input_cost,
+                    'output_cost': output_cost,
+                    'actual_cost': total_cost,
+                }
+                response_data_dict['data']['tokens'] = token_info
+                response_data_dict['data']['estimated_cost'] = {
+                    'input': input_cost,
+                    'output': output_cost,
+                    'total': total_cost
+                }
                 
                 response = LLMProxyResponse(
                     success=True,
@@ -193,7 +271,8 @@ class LLMProxy:
             proxy_logger.log_response(request_id, response.to_dict(), 
                                     response.status_code, processing_time,
                                     api_key_record, client_ip, user_agent, data=request_data,
-                                    model=model, from_cache=False)
+                                    model=model, from_cache=False,
+                                    token_info=locals().get('token_info'), cost_info=locals().get('cost_info'))
             metrics_collector.record_request('/api/proxy', response.status_code, 
                                            processing_time, client_ip)
             

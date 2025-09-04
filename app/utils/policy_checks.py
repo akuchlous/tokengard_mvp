@@ -1,6 +1,16 @@
 """
 Policy Checks Module
 
+FLOW OVERVIEW
+- validate_api_key(api_key, client_ip)
+  • Syntactic checks → DB lookup → key state and user status verification.
+- check_banned_keywords(user_id, text, client_ip)
+  • Consult user-specific banned keywords and fail if any match.
+- check_external_security(text, client_ip)
+  • Length checks, placeholder external moderation simulation.
+- run_all_checks(api_key, text, client_ip)
+  • Orchestrates the above, returning a unified PolicyCheckResult with details.
+
 This module handles all policy validation for the LLM proxy including:
 - API key validation
 - Banned keywords checking

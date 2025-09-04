@@ -1,7 +1,9 @@
 """
 Database Configuration
 
-This module contains the SQLAlchemy database configuration.
+FLOW OVERVIEW
+- Provides the global SQLAlchemy instance `db` used across all models.
+- Initialized in app factory (app/__init__.py) with app context.
 """
 
 from flask_sqlalchemy import SQLAlchemy

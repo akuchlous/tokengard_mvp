@@ -112,58 +112,50 @@ class TestFrontendBannedKeywords:
         
         print(f"✅ User registered with email: {test_email}")
         
-        # Step 2: Manually activate the user via API
-        print("2️⃣ Activating user...")
-        try:
-            # Get the activation token from the logs (it's printed in the server output)
-            # For now, let's try to activate the user directly via the database
-            with self.app.app_context():
-                from app.models import User, ActivationToken
-                user = User.query.filter_by(email=test_email).first()
-                if user:
-                    # Activate the user directly
-                    user.status = 'active'
-                    db.session.commit()
-                    print(f"✅ User activated: {test_email}")
-                else:
-                    print(f"❌ User not found: {test_email}")
-        except Exception as e:
-            print(f"⚠️  Could not activate user: {e}")
-        
-        # Step 3: Login the user
-        print("3️⃣ Logging in user...")
+        # Step 2: Go to login page
+        print("2️⃣ Going to login page...")
         self.driver.get('http://localhost:5000/auth/login')
         time.sleep(2)
         
-        # Fill login form
-        email_field = self.wait.until(
-            EC.presence_of_element_located((By.NAME, "email"))
+        # Step 3: Fill login form
+        print("3️⃣ Filling login form...")
+        email_input = self.driver.find_element(By.NAME, 'email')
+        password_input = self.driver.find_element(By.NAME, 'password')
+        
+        email_input.send_keys(test_email)
+        password_input.send_keys('TestPass123!')
+        
+        # Step 4: Submit login
+        print("4️⃣ Submitting login...")
+        submit_btn = self.driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+        submit_btn.click()
+        
+        # Step 5: Wait for redirect to home page
+        print("5️⃣ Waiting for login...")
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
         )
-        password_field = self.driver.find_element(By.NAME, "password")
         
-        email_field.clear()
-        email_field.send_keys(test_email)
-        password_field.clear()
-        password_field.send_keys("TestPass123!")
+        # Verify we're logged in by checking for user profile link
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, "Profile"))
+        )
         
-        # Submit form
-        submit_button = self.driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
-        submit_button.click()
+        print("✅ User registered and logged in successfully!")
         
-        # Wait for redirect
-        time.sleep(3)
-        current_url = self.driver.current_url
-        print(f"   Login redirect URL: {current_url}")
+        # Extract user_id from the profile link or use a default
+        try:
+            profile_link = self.driver.find_element(By.PARTIAL_LINK_TEXT, "Profile")
+            href = profile_link.get_attribute('href')
+            if '/user/' in href:
+                self.user_id = href.split('/user/')[-1]
+            else:
+                self.user_id = "test_user_id"
+        except:
+            self.user_id = "test_user_id"
         
-        # Check if we're on user profile page
-        if "/user/" in current_url:
-            print("✅ Login successful - redirected to user profile")
-            # Extract user_id from URL
-            self.user_id = current_url.split("/user/")[1]
-            print(f"   User ID: {self.user_id}")
-        else:
-            print(f"⚠️  Unexpected redirect to: {current_url}")
-            # Try to continue anyway
+        print(f"   User ID: {self.user_id}")
+        return test_email
     
     def test_banned_keywords_page_access(self):
         """Test accessing the banned keywords page."""

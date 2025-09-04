@@ -1,7 +1,14 @@
 """
 API Key Model
 
-This module contains the APIKey model for managing user API keys.
+FLOW OVERVIEW
+- Fields: user-bound key_name/key_value with state tracking.
+- Lifecycle helpers:
+  • enable/disable → toggle key usability.
+  • update_last_used → set timestamp after successful calls.
+  • refresh/refresh_key_value → rotate secrets while retaining key identity.
+- Factory:
+  • create_default_api_keys(user_id) → provision 10 keys per new user.
 """
 
 from datetime import datetime

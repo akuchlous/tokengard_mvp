@@ -44,6 +44,57 @@ make test
 make check
 ```
 
+### Semantic Cache (LLM Proxy)
+
+The LLM proxy uses a semantic cache backed by embeddings to return cached responses for prompts that are meaningfully similar, not just exact string matches.
+
+- Model: `SentenceTransformer('all-MiniLM-L6-v2')`
+- Similarity: cosine similarity with threshold 0.89
+- Behavior:
+  - On each request, we embed the prompt text and compare with cached embeddings per user.
+  - If any cached prompt has cosine similarity ≥ 0.89, we return the cached response immediately and mark the response as from cache.
+  - Otherwise, we call the LLM, then store the prompt, its embedding, and the response.
+
+Install requirements including sentence-transformers:
+
+```bash
+pip install -r requirements.txt
+```
+
+Notes:
+- The embedding model is loaded once lazily on first use inside the process.
+- Analytics and logs include cache hit rates and cost savings; when semantic hits occur, we log the similarity score.
+
+### Token Counting & Cost Estimation
+
+Token counting uses OpenAI's tiktoken with model-aware encodings. Per-1k pricing is configured in `pricing.json`.
+
+- Module: `app/utils/token_utils.py`
+- Functions:
+  - `count_tokens(text, model)` → token count using tiktoken
+  - `estimate_cost(token_count, model, is_output=False)` → USD cost using `pricing.json`
+- Proxy response includes metadata:
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "success",
+    "message": "Request processed successfully",
+    "tokens": {
+      "input_tokens": 12,
+      "output_tokens": 24,
+      "total_tokens": 36
+    },
+    "estimated_cost": {
+      "input": 0.000018,
+      "output": 0.000048,
+      "total": 0.000066
+    }
+  }
+}
+```
+
 ## Available Make Commands
 
 - `make help` - Show all available commands

@@ -1,7 +1,11 @@
 """
 Error Handlers
 
-This module contains error handling utilities and functions.
+FLOW OVERVIEW
+- render_error_page(title, message, status_code)
+  • Renders a friendly error page and returns (HTML, status).
+- register_error_handlers(app)
+  • Registers global 404 and 500 handlers. Rolls back DB session on 500.
 """
 
 from flask import render_template

@@ -1,7 +1,10 @@
 """
 Proxy Log Model
 
-This module contains the ProxyLog model for tracking API calls to the proxy endpoint.
+FLOW OVERVIEW
+- Persists proxy requests and responses with timings and metadata for analytics.
+- create_log: helper to construct a new entry tied to a validated API key.
+- Query helpers: by api key, by user, and aggregate stats in a date window.
 """
 
 from datetime import datetime

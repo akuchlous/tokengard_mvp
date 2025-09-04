@@ -1,7 +1,21 @@
 """
 Authentication Routes
 
-This module contains all authentication-related routes and functionality.
+FLOW OVERVIEW
+- /auth/register [GET, POST]
+  • Render form / validate + create user + send activation; redirect to activation-sent.
+- /auth/activation-sent [GET]
+  • Informational page after registration.
+- /auth/activate/<token> [GET]
+  • Validate token → activate user → provision default API keys.
+- /auth/login [GET, POST]
+  • Render form / authenticate → set session → redirect to profile.
+- /auth/logout [GET]
+  • Clear session and redirect to home.
+- /auth/forgot-password [GET, POST]
+  • Render form / generate reset token and send email.
+- /auth/reset-password/<token> [GET, POST]
+  • Render form / validate token and update password.
 """
 
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session

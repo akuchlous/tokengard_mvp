@@ -1,16 +1,27 @@
 """
 API Routes
 
-This module contains the API endpoints for the application.
+FLOW OVERVIEW
+- /api/proxy [POST]
+  • Validates request and policies, performs semantic cache lookup, calls LLM on miss, logs/metrics.
+- /api/policy [POST]
+  • Runs policy checks and returns structured pass/fail info without invoking the proxy.
+- /api/cache/*
+  • Stats/clear/invalidate per-user cache.
+- /api/clear-database [POST]
+  • Test/dev-only database reset with confirmation token and guardrails.
+- Misc helpers (e.g., health, auth-related test utilities when enabled).
 """
 
-from flask import Blueprint, jsonify, request, url_for, current_app
+from flask import Blueprint, jsonify, request, url_for, current_app, Response
 from ..models import User, APIKey, ActivationToken, ProxyLog, BannedKeyword, db
 import json
 import time
 import uuid
 import os
 from datetime import datetime
+from ..utils.prom_metrics import metrics_latest, CONTENT_TYPE_LATEST
+from ..utils.cache_lookup import llm_cache_lookup
 
 api_bp = Blueprint('api', __name__)
 
@@ -230,6 +241,60 @@ def proxy_endpoint():
         current_app.logger.error(f"Error in proxy endpoint: {str(e)}", exc_info=True)
         error_response = response_formatter.format_server_error_response()
         return jsonify(error_response), 500
+
+
+@api_bp.route('/metrics')
+def metrics():
+    """Prometheus metrics endpoint."""
+    output = metrics_latest()
+    return Response(output, mimetype=CONTENT_TYPE_LATEST)
+
+
+@api_bp.route('/ttl/<api_key>', methods=['GET'])
+def get_user_ttl(api_key):
+    """Get per-user cache TTL (seconds). Default is 30 days if not set."""
+    try:
+        from ..utils.policy_checks import policy_checker
+        policy_result = policy_checker.validate_api_key(api_key)
+        if not policy_result.passed:
+            return jsonify({
+                'success': False,
+                'error_code': policy_result.error_code,
+                'message': policy_result.message
+            }), 401
+        user = policy_result.details['user']
+        user_scope = getattr(user, 'user_id', None) or str(user.id)
+        ttl_seconds = llm_cache_lookup.cache_lookup.get_user_ttl(user_scope)
+        return jsonify({'success': True, 'data': {'user_id': user_scope, 'ttl_seconds': ttl_seconds}}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error_code': 'TTL_GET_ERROR', 'message': str(e)}), 500
+
+
+@api_bp.route('/ttl/<api_key>', methods=['POST'])
+def set_user_ttl(api_key):
+    """Set per-user cache TTL (seconds). Body: { ttl_seconds: int }"""
+    try:
+        from ..utils.policy_checks import policy_checker
+        from ..utils.api_utils import request_validator
+        policy_result = policy_checker.validate_api_key(api_key)
+        if not policy_result.passed:
+            return jsonify({
+                'success': False,
+                'error_code': policy_result.error_code,
+                'message': policy_result.message
+            }), 401
+        is_valid, data, error = request_validator.validate_json_request()
+        if not is_valid:
+            return jsonify(error), 400
+        ttl_seconds = int(data.get('ttl_seconds', 0))
+        if ttl_seconds <= 0:
+            return jsonify({'success': False, 'error_code': 'INVALID_TTL', 'message': 'ttl_seconds must be > 0'}), 400
+        user = policy_result.details['user']
+        user_scope = getattr(user, 'user_id', None) or str(user.id)
+        llm_cache_lookup.cache_lookup.set_user_ttl(user_scope, ttl_seconds)
+        return jsonify({'success': True, 'data': {'user_id': user_scope, 'ttl_seconds': ttl_seconds}}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error_code': 'TTL_SET_ERROR', 'message': str(e)}), 500
 
 
 @api_bp.route('/logs', methods=['GET'])

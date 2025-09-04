@@ -1,6 +1,16 @@
 """
 Input Validation and Security Utilities
 
+FLOW OVERVIEW
+- validate_email(email)
+  • RFC-like syntax checks and basic security checks; returns sanitized lowercased value.
+- validate_password_hash(hash)
+  • Enforce SHA-256 hex string constraints.
+- validate_password_strength(password)
+  • Enforce length and character variety; allows sequential patterns by project preference.
+- sanitize_input(input, max_length)
+  • Trim, bound length, normalize, and remove null bytes.
+
 This module provides comprehensive validation functions for user inputs,
 following security best practices and preventing common attack vectors.
 """

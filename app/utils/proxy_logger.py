@@ -1,13 +1,21 @@
 """
-Proxy Logger Module
+Proxy Logger and Metrics
 
-This module handles logging for the LLM proxy including:
-- Request/response logging
-- Metrics collection
-- Performance tracking
-- Security monitoring
+FLOW OVERVIEW
+- log_request(request_data, client_ip, user_agent, request_id)
+  • Create a correlation id (if missing) and log basic request metadata.
 
-Used by both API endpoints and the proxy.
+- log_response(request_id, response_data, status_code, processing_time_ms, ...)
+  • Persist a `ProxyLog` row (with api_key if validated or raw value if not).
+  • Compute tokens/cost (via token_counter) and include cache savings when applicable.
+  • Emit readable log lines and structured metrics.
+
+- log_metrics(request_id, metrics)
+  • Emit detailed, structured metrics for observability.
+
+- MetricsCollector
+  • record_request(endpoint, status, latency, client_ip, token_info, cost_info)
+  • get_metrics(minutes): aggregate windowed metrics with cache hit and cost savings rates.
 """
 
 import time
@@ -18,6 +26,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 from flask import request, current_app
 from ..models import ProxyLog, db
+from .prom_metrics import observe_request
 
 
 class ProxyLogger:
@@ -65,7 +74,8 @@ class ProxyLogger:
                     status_code: int, processing_time_ms: int, 
                     api_key_record=None, client_ip: str = None, 
                     user_agent: str = None, data: Dict[str, Any] = None,
-                    model: str = 'default', from_cache: bool = False) -> None:
+                    model: str = 'default', from_cache: bool = False,
+                    token_info: Dict[str, Any] = None, cost_info: Dict[str, Any] = None) -> None:
         """
         Log a response and create database entry.
         
@@ -131,54 +141,11 @@ class ProxyLogger:
             # Commit the log entry
             db.session.commit()
             
-            # Calculate token counts and cost metrics
-            from .token_counter import token_counter
-            
-            token_info = {}
-            cost_info = {}
-            
-            if data:
-                # Analyze request tokens
-                request_analysis = token_counter.analyze_request(data)
-                token_info['input_tokens'] = request_analysis['input_tokens']
-                token_info['input_text_length'] = len(data.get('text', ''))
-                
-                # Analyze response tokens if successful
-                if status_code == 200 and response_data.get('success'):
-                    response_analysis = token_counter.analyze_response(
-                        response_data.get('data', {}).get('response', {}), model
-                    )
-                    token_info['output_tokens'] = response_analysis['output_tokens']
-                    token_info['output_text_length'] = len(response_analysis['output_text'])
-                    
-                    # Calculate cost information
-                    if from_cache:
-                        # Cache hit - calculate savings
-                        cost_savings = token_counter.calculate_cost_savings(
-                            token_info['input_tokens'], 
-                            token_info['output_tokens'], 
-                            model
-                        )
-                        cost_info = {
-                            'cache_hit': True,
-                            'cost_saved': cost_savings['cost_saved'],
-                            'tokens_saved': cost_savings['tokens_saved'],
-                            'actual_cost': 0.0
-                        }
-                    else:
-                        # LLM call - calculate actual cost
-                        cost_estimate = token_counter.estimate_cost(
-                            token_info['input_tokens'], 
-                            token_info['output_tokens'], 
-                            model
-                        )
-                        cost_info = {
-                            'cache_hit': False,
-                            'cost_saved': 0.0,
-                            'tokens_saved': 0,
-                            'actual_cost': cost_estimate['total_cost'],
-                            'cost_breakdown': cost_estimate
-                        }
+            # Calculate token counts and cost metrics (prefer provided tiktoken-based data)
+            if token_info is None:
+                token_info = {}
+            if cost_info is None:
+                cost_info = {}
             
             # Log response details with token and cost information
             log_message = f"Response {request_id}: {status_code} - {response_status} ({processing_time_ms}ms)"
@@ -186,8 +153,8 @@ class ProxyLogger:
                 log_message += f" | Tokens: {token_info.get('input_tokens', 0)}→{token_info.get('output_tokens', 0)}"
             if cost_info:
                 if cost_info.get('cache_hit'):
-                    log_message += f" | Cache hit: ${cost_info['cost_saved']:.6f} saved"
-                else:
+                    log_message += f" | Cache hit: ${cost_info.get('cost_saved', 0.0):.6f} saved"
+                elif 'actual_cost' in cost_info:
                     log_message += f" | Cost: ${cost_info['actual_cost']:.6f}"
             
             self.logger.info(log_message)
@@ -200,6 +167,11 @@ class ProxyLogger:
                     'model': model,
                     'from_cache': from_cache
                 })
+            # Prometheus request metrics
+            try:
+                observe_request('/api/proxy', status_code, processing_time_ms / 1000.0)
+            except Exception:
+                pass
             
         except Exception as e:
             self.logger.error(f"Error logging response: {str(e)}")
@@ -356,6 +328,13 @@ class MetricsCollector:
                 'llm_calls': 0,
                 'cache_hit_rate': 0.0,
                 'cost_savings_rate': 0.0,
+                'cache': {
+                    'lookups': 0,
+                    'hits': 0,
+                    'avg_lookup_ms': 0.0,
+                    'best_score_max': 0.0,
+                    'per_user': {}
+                },
                 'time_range': {
                     'start': cutoff_time,
                     'end': current_time,
@@ -375,6 +354,19 @@ class MetricsCollector:
                     aggregated['total_cost_saved'] += metrics['total_cost_saved']
                     aggregated['cache_hits'] += metrics['cache_hits']
                     aggregated['llm_calls'] += metrics['llm_calls']
+                    # Cache sub-aggregation
+                    cache_m = metrics.get('cache', {})
+                    aggregated['cache']['lookups'] += cache_m.get('lookups', 0)
+                    aggregated['cache']['hits'] += cache_m.get('hits', 0)
+                    aggregated['cache']['avg_lookup_ms'] += cache_m.get('total_lookup_ms', 0)
+                    aggregated['cache']['best_score_max'] = max(
+                        aggregated['cache']['best_score_max'], cache_m.get('best_score_max', 0.0)
+                    )
+                    for user_hash, u in cache_m.get('per_user', {}).items():
+                        if user_hash not in aggregated['cache']['per_user']:
+                            aggregated['cache']['per_user'][user_hash] = {'lookups': 0, 'hits': 0}
+                        aggregated['cache']['per_user'][user_hash]['lookups'] += u.get('lookups', 0)
+                        aggregated['cache']['per_user'][user_hash]['hits'] += u.get('hits', 0)
                     
                     # Aggregate endpoints
                     for endpoint, count in metrics['endpoints'].items():
@@ -407,6 +399,9 @@ class MetricsCollector:
             total_potential_cost = aggregated['total_cost'] + aggregated['total_cost_saved']
             if total_potential_cost > 0:
                 aggregated['cost_savings_rate'] = round((aggregated['total_cost_saved'] / total_potential_cost) * 100, 2)
+            # Finalize cache avg lookup ms
+            if aggregated['cache']['lookups'] > 0:
+                aggregated['cache']['avg_lookup_ms'] = round(aggregated['cache']['avg_lookup_ms'] / aggregated['cache']['lookups'], 2)
             
             return aggregated
             
@@ -431,6 +426,52 @@ class MetricsCollector:
                 
         except Exception as e:
             self.logger.error(f"Error cleaning up old metrics: {str(e)}")
+
+    def record_cache_lookup(self, user_hash: str, candidate_count: int, best_score: float,
+                            lookup_ms: int, hit: bool) -> None:
+        """Record per-look-up cache metrics, aggregated per minute and per user."""
+        try:
+            timestamp = int(time.time())
+            minute_key = f"{timestamp // 60}"
+            if minute_key not in self._metrics:
+                self._metrics[minute_key] = {
+                    'total_requests': 0,
+                    'successful_requests': 0,
+                    'failed_requests': 0,
+                    'total_processing_time': 0,
+                    'endpoints': {},
+                    'status_codes': {},
+                    'client_ips': {},
+                    'total_tokens': 0,
+                    'total_cost': 0.0,
+                    'total_cost_saved': 0.0,
+                    'cache_hits': 0,
+                    'llm_calls': 0,
+                    'cache': {
+                        'lookups': 0,
+                        'hits': 0,
+                        'total_lookup_ms': 0,
+                        'best_score_max': 0.0,
+                        'per_user': {}
+                    }
+                }
+            m = self._metrics[minute_key]['cache']
+            m['lookups'] += 1
+            if hit:
+                m['hits'] += 1
+            m['total_lookup_ms'] += lookup_ms
+            if best_score is not None:
+                m['best_score_max'] = max(m['best_score_max'], float(best_score))
+            # Per-user
+            if user_hash not in m['per_user']:
+                m['per_user'][user_hash] = {'lookups': 0, 'hits': 0}
+            m['per_user'][user_hash]['lookups'] += 1
+            if hit:
+                m['per_user'][user_hash]['hits'] += 1
+            # Periodic cleanup
+            self._cleanup_old_metrics()
+        except Exception as e:
+            self.logger.error(f"Error recording cache lookup metric: {str(e)}")
 
 
 # Global instances

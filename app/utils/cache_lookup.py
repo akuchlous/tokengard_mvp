@@ -1,21 +1,45 @@
 """
-Cache Lookup Module
+Semantic Cache Layer for LLM Proxy
 
-This module handles caching for the LLM proxy including:
-- Request/response caching
-- Cache key generation
-- Cache invalidation
-- Cache statistics
+FLOW OVERVIEW
+- get_llm_response(api_key, request_data, model, temperature)
+  1) Lazily ensure the embedding model `SentenceTransformer('all-MiniLM-L6-v2')` is loaded.
+  2) Embed the incoming prompt text → query vector.
+  3) Find candidate cache entries for the same user via a per-user index.
+  4) For each candidate, compute cosine similarity(query, entry.embedding).
+  5) If best similarity ≥ threshold (0.89), return the cached response with `similarity`.
+  6) Otherwise, return miss (False, None).
 
-Currently implemented as a stub that can be enhanced with Redis, Memcached, or other caching solutions.
+- cache_llm_response(api_key, request_data, response_data, ttl, ...)
+  1) Lazily ensure the embedding model is loaded.
+  2) Generate a stable cache key (hash of user+prompt+model+temperature).
+  3) Embed the prompt and store: response, embedding, prompt text, and metadata.
+  4) Update the per-user index for faster lookups.
+
+DATA STRUCTURE
+- In-memory dictionary of `CacheEntry` keyed by cache_key.
+- Each value holds a dict with: response, cached_at, cache_key, prompt_text, embedding (list[float]), request_metadata.
+- A per-user index maps user-hash → list of cache_keys.
+
+NOTES
+- All embeddings are produced on demand; model is loaded once per process.
+- Designed so it can be swapped with Redis/FAISS later without changing the public API.
 """
 
 import hashlib
 import json
 import time
 import logging
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime, timedelta
+import numpy as np
+
+try:
+    from sentence_transformers import SentenceTransformer
+except Exception:  # pragma: no cover
+    SentenceTransformer = None  # Will be initialized lazily
+from .proxy_logger import metrics_collector
+from .prom_metrics import observe_cache_lookup
 
 
 class CacheEntry:
@@ -28,6 +52,9 @@ class CacheEntry:
         self.created_at = created_at or time.time()
         self.access_count = 0
         self.last_accessed = self.created_at
+        # Optional fields used for semantic cache
+        self.prompt_text: Optional[str] = None
+        self.embedding: Optional[np.ndarray] = None
     
     def is_expired(self) -> bool:
         """Check if the cache entry has expired."""
@@ -68,6 +95,20 @@ class CacheLookup:
             'evictions': 0,
             'total_requests': 0
         }
+        # Semantic cache specific: store entries per user hash for quick scan
+        self._user_index: Dict[str, List[str]] = {}
+        # Per-user TTL (seconds); default if missing is 30 days
+        self._user_ttl: Dict[str, int] = {}
+
+    def get_user_ttl(self, user_scope: str) -> int:
+        """Return TTL (seconds) for a given user scope, default 30 days."""
+        user_hash = hashlib.sha256(user_scope.encode()).hexdigest()[:16]
+        return self._user_ttl.get(user_hash, 30 * 24 * 3600)
+
+    def set_user_ttl(self, user_scope: str, ttl_seconds: int) -> None:
+        """Set TTL (seconds) for a given user scope."""
+        user_hash = hashlib.sha256(user_scope.encode()).hexdigest()[:16]
+        self._user_ttl[user_hash] = ttl_seconds
     
     def generate_cache_key(self, api_key: str, request_data: Dict[str, Any], 
                           model: str = None, temperature: float = None) -> str:
@@ -86,7 +127,7 @@ class CacheLookup:
         try:
             # Create a deterministic key from request data
             key_data = {
-                'api_key_hash': hashlib.sha256(api_key.encode()).hexdigest()[:16],
+                'user_scope_hash': hashlib.sha256(api_key.encode()).hexdigest()[:16],
                 'text': request_data.get('text', ''),
                 'model': model or 'default',
                 'temperature': temperature or 0.7
@@ -202,6 +243,7 @@ class CacheLookup:
         """Clear all cache entries."""
         try:
             self._cache.clear()
+            self._user_index.clear()
             self.logger.info("Cache cleared")
         except Exception as e:
             self.logger.error(f"Error clearing cache: {str(e)}")
@@ -307,14 +349,34 @@ class CacheLookup:
 class LLMCacheLookup:
     """Specialized cache lookup for LLM requests."""
     
-    def __init__(self, cache_lookup: CacheLookup = None):
+    def __init__(self, cache_lookup: CacheLookup = None, similarity_threshold: float = 0.89):
         self.cache_lookup = cache_lookup or CacheLookup()
         self.logger = logging.getLogger(__name__)
+        self.similarity_threshold = similarity_threshold
+        self._model: Optional[SentenceTransformer] = None
+    
+    def _ensure_model(self) -> None:
+        """Load the SentenceTransformer model once lazily."""
+        if self._model is None:
+            if SentenceTransformer is None:
+                raise RuntimeError("sentence-transformers is not installed. Add it to requirements.")
+            # Load lightweight, fast model
+            self._model = SentenceTransformer('all-MiniLM-L6-v2')
+            self.logger.info("Loaded SentenceTransformer('all-MiniLM-L6-v2') for semantic cache")
+    
+    @staticmethod
+    def _cosine_similarity(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+        if vec_a is None or vec_b is None:
+            return -1.0
+        denom = (np.linalg.norm(vec_a) * np.linalg.norm(vec_b))
+        if denom == 0:
+            return -1.0
+        return float(np.dot(vec_a, vec_b) / denom)
     
     def get_llm_response(self, api_key: str, request_data: Dict[str, Any], 
                         model: str = None, temperature: float = None) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """
-        Get cached LLM response.
+        Get cached LLM response using semantic similarity.
         
         Args:
             api_key: API key
@@ -326,18 +388,63 @@ class LLMCacheLookup:
             Tuple of (found, response_data)
         """
         try:
-            cache_key = self.cache_lookup.generate_cache_key(
-                api_key, request_data, model, temperature
+            # Ensure model is loaded
+            self._ensure_model()
+            
+            # Compute embedding for incoming prompt
+            prompt_text = request_data.get('text', '') or ''
+            api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
+            query_vec = self._model.encode([prompt_text], normalize_embeddings=False)[0]
+            
+            # Scan user-specific entries for best semantic match
+            best_score = -1.0
+            best_entry_key: Optional[str] = None
+            # Prefer indexed keys for this user
+            candidate_keys = self.cache_lookup._user_index.get(api_key_hash, [])
+            if not candidate_keys:
+                candidate_keys = [k for k in self.cache_lookup._cache.keys() if api_key_hash in k]
+            
+            scan_start = time.time()
+            for key in list(candidate_keys):
+                entry = self.cache_lookup._cache.get(key)
+                if entry is None:
+                    continue
+                # Skip expired
+                if entry.is_expired():
+                    continue
+                # Entries must have embedding to participate
+                meta = entry.value
+                emb = meta.get('embedding') if isinstance(meta, dict) else None
+                if emb is None:
+                    continue
+                score = self._cosine_similarity(np.array(emb, dtype=float), query_vec)
+                if score > best_score:
+                    best_score = score
+                    best_entry_key = key
+            
+            lookup_ms = int((time.time() - scan_start) * 1000)
+            metrics_collector.record_cache_lookup(
+                user_hash=api_key_hash,
+                candidate_count=len(candidate_keys),
+                best_score=best_score,
+                lookup_ms=lookup_ms,
+                hit=(best_score >= self.similarity_threshold)
             )
+            try:
+                observe_cache_lookup(api_key_hash, lookup_ms / 1000.0, (best_score >= self.similarity_threshold), best_score)
+            except Exception:
+                pass
+
+            if best_entry_key is not None and best_score >= self.similarity_threshold:
+                found, cached_response = self.cache_lookup.get(best_entry_key)
+                if found:
+                    # Attach similarity to response metadata
+                    cached_response['similarity'] = best_score
+                    self.logger.info(f"Semantic cache hit (score={best_score:.3f}) for key: {best_entry_key[:16]}...")
+                    return True, cached_response
             
-            found, cached_response = self.cache_lookup.get(cache_key)
-            
-            if found:
-                self.logger.info(f"LLM cache hit for key: {cache_key[:16]}...")
-                return True, cached_response
-            else:
-                self.logger.debug(f"LLM cache miss for key: {cache_key[:16]}...")
-                return False, None
+            self.logger.debug("Semantic cache miss (no entry above threshold)")
+            return False, None
                 
         except Exception as e:
             self.logger.error(f"Error getting LLM response from cache: {str(e)}")
@@ -347,7 +454,7 @@ class LLMCacheLookup:
                           response_data: Dict[str, Any], ttl: int = 3600,
                           model: str = None, temperature: float = None) -> bool:
         """
-        Cache LLM response.
+        Cache LLM response including prompt text and embedding for semantic lookup.
         
         Args:
             api_key: API key
@@ -361,23 +468,43 @@ class LLMCacheLookup:
             True if cached successfully
         """
         try:
+            # Ensure model is loaded
+            self._ensure_model()
+            
             cache_key = self.cache_lookup.generate_cache_key(
                 api_key, request_data, model, temperature
             )
+            
+            prompt_text = request_data.get('text', '') or ''
+            embedding = self._model.encode([prompt_text], normalize_embeddings=False)[0].tolist()
             
             # Add metadata to cached response
             cached_response = {
                 'response': response_data,
                 'cached_at': time.time(),
                 'cache_key': cache_key,
+                'prompt_text': prompt_text,
+                'embedding': embedding,
                 'request_metadata': {
                     'model': model,
                     'temperature': temperature,
-                    'text_length': len(request_data.get('text', ''))
+                    'text_length': len(prompt_text)
                 }
             }
             
-            success = self.cache_lookup.set(cache_key, cached_response, ttl)
+            # Determine TTL: use provided ttl if given, otherwise per-user TTL
+            effective_ttl = ttl if ttl is not None else self.cache_lookup.get_user_ttl(api_key)
+            success = self.cache_lookup.set(cache_key, cached_response, effective_ttl)
+            
+            # Update per-user index for fast semantic scan
+            try:
+                api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
+                if api_key_hash not in self.cache_lookup._user_index:
+                    self.cache_lookup._user_index[api_key_hash] = []
+                if cache_key not in self.cache_lookup._user_index[api_key_hash]:
+                    self.cache_lookup._user_index[api_key_hash].append(cache_key)
+            except Exception:
+                pass
             
             if success:
                 self.logger.info(f"LLM response cached with key: {cache_key[:16]}... (TTL: {ttl}s)")

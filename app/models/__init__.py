@@ -1,7 +1,9 @@
 """
 Database Models Package
 
-This package contains all SQLAlchemy models and database configuration.
+FLOW OVERVIEW
+- Centralizes SQLAlchemy DB instance and model imports for convenient usage.
+- Exposes: db, User, ActivationToken, PasswordResetToken, APIKey, ProxyLog, BannedKeyword.
 """
 
 from .database import db

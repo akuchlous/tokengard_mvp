@@ -1,7 +1,10 @@
 """
 Application Configuration
 
-This module contains the configuration class for the TokenGuard application.
+FLOW OVERVIEW
+- Config.__init__
+  • Reads FLASK_ENV to select which .env file to load (dev/prod). Testing bypasses file load.
+- Properties expose configuration values, defaulting to sensible development-safe defaults.
 """
 
 import os

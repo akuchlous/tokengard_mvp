@@ -1,0 +1,23 @@
+{
+  "gpt-4o": {
+    "input_per_1k": 0.005,
+    "output_per_1k": 0.015
+  },
+  "gpt-4o-mini": {
+    "input_per_1k": 0.0005,
+    "output_per_1k": 0.0015
+  },
+  "gpt-3.5-turbo": {
+    "input_per_1k": 0.0015,
+    "output_per_1k": 0.002
+  },
+  "text-embedding-3-small": {
+    "input_per_1k": 0.00002,
+    "output_per_1k": 0.00002
+  },
+  "text-embedding-3-large": {
+    "input_per_1k": 0.00013,
+    "output_per_1k": 0.00013
+  }
+}
+

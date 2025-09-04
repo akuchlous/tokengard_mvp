@@ -1,7 +1,19 @@
 """
 Authentication Utilities
 
-This module contains utility functions for authentication and user management.
+FLOW OVERVIEW
+- hash_password / verify_password
+  • Deterministic SHA-256 hashing (demo purposes), and matcher.
+- create_user(email, password)
+  • Create user + activation token; returns both for follow-up workflows.
+- authenticate_user(email, password)
+  • Verify credentials and active status before returning user.
+- generate_jwt_token / verify_jwt_token
+  • Placeholder JWT helpers; replace with proper JWT implementation in production.
+- get_user_by_token(token)
+  • Resolve password-reset token to user.
+- send_activation_email / send_password_reset_email
+  • Placeholder email senders; integrate Flask-Mail or provider in production.
 """
 
 import hashlib

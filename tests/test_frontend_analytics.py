@@ -307,17 +307,68 @@ class TestFrontendAnalytics:
             EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, "Profile"))
         )
     
+    def register_and_login_user(self, driver):
+        """Register and login a user like the working tests do."""
+        # Step 1: Register a new user
+        print("1️⃣ Registering new user...")
+        driver.get('http://localhost:5000/auth/register')
+        time.sleep(2)
+        
+        # Fill registration form
+        email_input = driver.find_element(By.NAME, 'email')
+        password_input = driver.find_element(By.NAME, 'password')
+        confirm_password_input = driver.find_element(By.NAME, 'confirmPassword')
+        
+        test_email = f'analytics{int(time.time())}@example.com'
+        email_input.send_keys(test_email)
+        password_input.send_keys('TestPass123!')
+        confirm_password_input.send_keys('TestPass123!')
+        
+        # Submit registration
+        submit_btn = driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+        submit_btn.click()
+        time.sleep(3)
+        
+        # Step 2: Go to login page
+        print("2️⃣ Going to login page...")
+        driver.get('http://localhost:5000/auth/login')
+        time.sleep(2)
+        
+        # Step 3: Fill login form
+        print("3️⃣ Filling login form...")
+        email_input = driver.find_element(By.NAME, 'email')
+        password_input = driver.find_element(By.NAME, 'password')
+        
+        email_input.send_keys(test_email)
+        password_input.send_keys('TestPass123!')
+        
+        # Step 4: Submit login
+        print("4️⃣ Submitting login...")
+        submit_btn = driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+        submit_btn.click()
+        
+        # Step 5: Wait for redirect to home page
+        print("5️⃣ Waiting for login...")
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
+        
+        # Verify we're logged in by checking for user profile link
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, "Profile"))
+        )
+        
+        print("✅ User registered and logged in successfully!")
+        return test_email
+    
     def test_analytics_page_frontend_flow(self):
         """Test complete frontend flow for analytics page."""
-        # Start Flask server
-        if not self.start_flask_server():
-            pytest.skip("Could not start Flask server")
-        
+        # Use simple approach like working tests - assume Flask server is running
         driver = self.setup_selenium_driver()
         
         try:
-            # Login user
-            self.login_user(driver, "http://localhost:5001")
+            # Register and login user
+            test_email = self.register_and_login_user(driver)
             
             # Navigate to user profile
             profile_link = WebDriverWait(driver, 10).until(
@@ -344,7 +395,7 @@ class TestFrontendAnalytics:
             
             # Verify user info is displayed
             user_info = driver.find_element(By.CLASS_NAME, "user-info")
-            assert "analytics@example.com" in user_info.text
+            assert test_email in user_info.text
             
             # Wait for stats to load (they're loaded via JavaScript)
             time.sleep(3)
@@ -397,22 +448,18 @@ class TestFrontendAnalytics:
             
         finally:
             driver.quit()
-            self.stop_flask_server()
     
     def test_analytics_filtering_frontend(self):
         """Test filtering functionality in frontend."""
-        # Start Flask server
-        if not self.start_flask_server():
-            pytest.skip("Could not start Flask server")
-        
+        # Use existing Flask server on localhost:5000
         driver = self.setup_selenium_driver()
         
         try:
-            # Login user
-            self.login_user(driver, "http://localhost:5001")
+            # Register and login user
+            test_email = self.register_and_login_user(driver)
             
             # Navigate to logs page
-            driver.get("http://localhost:5001/logs/analytics@example.com")
+            driver.get(f"http://localhost:5000/logs/{test_email}")
             
             # Wait for page to load
             WebDriverWait(driver, 10).until(
@@ -446,19 +493,15 @@ class TestFrontendAnalytics:
             
         finally:
             driver.quit()
-            self.stop_flask_server()
     
     def test_analytics_real_api_calls_frontend(self):
         """Test analytics by making real API calls and verifying they're logged in frontend."""
-        # Start Flask server
-        if not self.start_flask_server():
-            pytest.skip("Could not start Flask server")
-        
+        # Use existing Flask server on localhost:5000
         driver = self.setup_selenium_driver()
         
         try:
-            # Login user
-            self.login_user(driver, "http://localhost:5001")
+            # Register and login user
+            test_email = self.register_and_login_user(driver)
             
             # Make some API calls to the proxy endpoint
             test_payloads = [
@@ -468,14 +511,14 @@ class TestFrontendAnalytics:
             ]
             
             for payload in test_payloads:
-                response = requests.post('http://localhost:5001/api/proxy', json=payload)
+                response = requests.post('http://localhost:5000/api/proxy', json=payload)
                 assert response.status_code in [200, 401]  # Valid or invalid key
             
             # Wait a moment for logs to be processed
             time.sleep(2)
             
             # Navigate to logs page and verify new entries are visible
-            driver.get("http://localhost:5001/logs/analytics@example.com")
+            driver.get("http://localhost:5000/logs/analytics@example.com")
             
             # Wait for page to load
             WebDriverWait(driver, 10).until(
@@ -491,4 +534,3 @@ class TestFrontendAnalytics:
             
         finally:
             driver.quit()
-            self.stop_flask_server()

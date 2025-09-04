@@ -1,7 +1,25 @@
 """
 Main Routes
 
-This module contains the main application routes.
+FLOW OVERVIEW
+- / [GET]
+  • Landing page.
+- /health [GET]
+  • JSON health check.
+- /user/<user_id> [GET]
+  • Auth gate; self-only profile view.
+- /keys/<user_id> [GET]
+  • Auth gate; list user's API keys.
+- /deactivate-key/<key_id> [POST]
+  • Auth gate; deactivate given key if owned.
+- /logs/<user_id> [GET]
+  • Auth gate; server-side analytics for user's logs.
+- /test/<key_value> [GET]
+  • Auth gate; UI for trying proxy with a specific key.
+- /banned_keywords/<user_id> [GET]
+  • Auth gate; manage banned keywords.
+- /init-db [GET]
+  • Initialize DB tables (dev utility).
 """
 
 from flask import Blueprint, render_template, jsonify, url_for, session, flash, redirect

@@ -1,7 +1,14 @@
 """
-User Models
+User and Token Models
 
-This module contains the User, ActivationToken, and PasswordResetToken models.
+FLOW OVERVIEW
+- User
+  • Constructor validates email and password hash, assigns generated user_id, defaults to inactive.
+  • is_active/update_last_login helpers for auth flows.
+- ActivationToken
+  • Time-bound token for account activation; supports validity checks and mark_used.
+- PasswordResetToken
+  • Short-lived token for password reset; supports validity checks and mark_used.
 """
 
 from datetime import datetime, timedelta

@@ -1,7 +1,11 @@
 """
 TokenGuard Application Package
 
-This package contains the main Flask application and all its components.
+FLOW OVERVIEW
+- create_app(test_config=None)
+  • Build Flask app, apply config (test or env-based), init extensions (DB, Mail).
+  • Register blueprints: auth (/auth), main (/), api (/api).
+  • Register global error handlers.
 """
 
 from flask import Flask

@@ -1,7 +1,12 @@
 """
 Banned Keywords Model
 
-This module contains the BannedKeyword model for managing user-specific banned keywords.
+FLOW OVERVIEW
+- Store per-user banned keywords with uniqueness enforced per (user_id, keyword).
+- get_user_keywords(user_id): list keywords for UI and checks.
+- add_keyword/remove_keyword: mutate user list, with duplicate protection.
+- check_banned(user_id, text): scan lowercase text for banned keywords.
+- populate_default_keywords(user_id): seed defaults for new users.
 """
 
 from datetime import datetime

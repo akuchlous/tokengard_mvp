@@ -1,8 +1,21 @@
 """
-Token Counter Module
+Token Counter and Cost Estimation
 
-This module provides token counting functionality for text content.
-Includes cost estimation based on token counts for different models.
+FLOW OVERVIEW
+- count_tokens(text)
+  • Heuristic token estimator suitable for approximations when provider tokenizer is unavailable.
+- estimate_cost(input_tokens, output_tokens, model)
+  • Convert token counts into dollar estimates using per-1K token pricing.
+- analyze_request(request_data)
+  • Extract text/model, count input tokens, return preliminary cost estimate.
+- analyze_response(response_data, model)
+  • Extract assistant text from common response shapes and count output tokens.
+- calculate_cost_savings(input_tokens, output_tokens, model)
+  • Compute hypothetical cost avoided when serving from cache.
+
+Notes
+- Pricing values are approximations and should be updated for production.
+- Replace with provider tokenizers (e.g., tiktoken) for accurate counts if needed.
 """
 
 import re

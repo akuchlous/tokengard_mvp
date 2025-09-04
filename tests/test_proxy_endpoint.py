@@ -50,15 +50,21 @@ class TestProxyEndpoint:
             
             assert response.status_code == 200
             data = response.get_json()
-            assert data['status'] == 'key_pass'
-            assert data['message'] == 'API key is valid and content passed all checks.'
-            assert data['key_name'] == 'key_0'
-            assert data['text_length'] == 13
+            assert data['data']['status'] == 'success'
+            assert data['data']['message'] == 'Request processed successfully'
+            assert data['data']['key_name'] == 'key_0'
+            assert data['data']['text_length'] == 13
+            # Token/cost metadata present
+            assert 'tokens' in data['data']
+            assert 'estimated_cost' in data['data']
+            assert 'input' in data['data']['estimated_cost']
+            assert 'output' in data['data']['estimated_cost']
+            assert 'total' in data['data']['estimated_cost']
     
     def test_proxy_endpoint_invalid_key(self, app, test_user_with_keys):
         """Test proxy endpoint with invalid API key"""
         with app.test_client() as client:
-            response = client.post('/api/proxy', 
+            response = client.post('/api/proxy',
                 json={
                     'api_key': 'tk-invalid-key-that-does-not-exist',
                     'text': 'Hello, world!'
@@ -68,8 +74,8 @@ class TestProxyEndpoint:
             
             assert response.status_code == 401
             data = response.get_json()
-            assert data['status'] == 'key_error'
-            assert data['message'] == 'API key not found.'
+            assert data['error_code'] == 'API_KEY_NOT_FOUND'
+            assert data['message'] == 'Authentication failed'
     
     def test_proxy_endpoint_inactive_key(self, app, test_user_with_keys):
         """Test proxy endpoint with inactive/disabled API key"""
@@ -87,8 +93,8 @@ class TestProxyEndpoint:
             
             assert response.status_code == 401
             data = response.get_json()
-            assert data['status'] == 'key_error'
-            assert data['message'] == 'API key is inactive.'
+            assert data['error_code'] == 'API_KEY_INACTIVE'
+            assert data['message'] == 'Authentication failed'
     
     def test_proxy_endpoint_missing_api_key(self, app, test_user_with_keys):
         """Test proxy endpoint with missing API key"""
@@ -102,8 +108,8 @@ class TestProxyEndpoint:
             
             assert response.status_code == 400
             data = response.get_json()
-            assert data['status'] == 'key_error'
-            assert data['message'] == 'API key is required.'
+            assert data['error_code'] == 'MISSING_API_KEY'
+            assert data['message'] == 'API key is required. Provide api_key in JSON payload or X-API-Key header.'
     
     def test_proxy_endpoint_empty_api_key(self, app, test_user_with_keys):
         """Test proxy endpoint with empty API key"""
@@ -118,8 +124,8 @@ class TestProxyEndpoint:
             
             assert response.status_code == 400
             data = response.get_json()
-            assert data['status'] == 'key_error'
-            assert data['message'] == 'API key is required.'
+            assert data['error_code'] == 'MISSING_API_KEY'
+            assert data['message'] == 'API key is required. Provide api_key in JSON payload or X-API-Key header.'
     
     def test_proxy_endpoint_no_json(self, app, test_user_with_keys):
         """Test proxy endpoint with no JSON payload"""
@@ -132,8 +138,8 @@ class TestProxyEndpoint:
             # If we get a JSON response, check the error message
             if response.content_type and 'application/json' in response.content_type:
                 data = response.get_json()
-                assert data['status'] == 'key_error'
-                assert data['message'] == 'Invalid request format. JSON payload required.'
+                assert data['error_code'] == 'INVALID_JSON'
+                assert data['message'] == 'Invalid JSON format. Request must be valid JSON.'
     
     def test_proxy_endpoint_no_text(self, app, test_user_with_keys):
         """Test proxy endpoint with valid key but no text"""
@@ -150,10 +156,10 @@ class TestProxyEndpoint:
             
             assert response.status_code == 200
             data = response.get_json()
-            assert data['status'] == 'key_pass'
-            assert data['message'] == 'API key is valid.'
-            assert data['key_name'] == 'key_0'
-            assert data['text_length'] == 0
+            assert data['data']['status'] == 'success'
+            assert data['data']['message'] == 'Request processed successfully'
+            assert data['data']['key_name'] == 'key_0'
+            assert data['data']['text_length'] == 0
     
     def test_proxy_endpoint_updates_last_used(self, app, test_user_with_keys):
         """Test that proxy endpoint updates the last_used timestamp"""

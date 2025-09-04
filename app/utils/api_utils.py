@@ -1,11 +1,20 @@
 """
 API Utilities Module
 
-This module contains shared utilities for API endpoints including:
-- Request validation
-- Response formatting
-- Common error handling
-- Input sanitization
+FLOW OVERVIEW
+- APIRequestValidator
+  • validate_json_request → parse/validate JSON and return (ok, data, error).
+  • validate_api_key → extract key from JSON or header.
+  • validate_text_content → extract text, optionally enforce presence.
+  • validate_request_size → enforce 10KB content size limit.
+
+- APIResponseFormatter
+  • format_policy_success_response / format_policy_failure_response → structured policy results.
+  • format_proxy_success_response / format_proxy_failure_response → unified proxy responses.
+  • format_server_error_response → consistent unexpected error payload.
+
+- APIRateLimiter
+  • check_rate_limit(client_ip) → per-minute counter with simple in-app cleanup.
 
 Used by both proxy and policy endpoints to avoid code duplication.
 """

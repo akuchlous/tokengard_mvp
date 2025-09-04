@@ -2,7 +2,11 @@
 """
 TokenGuard Application Entry Point
 
-This is the main entry point for the TokenGuard Flask application.
+FLOW OVERVIEW
+- Reads environment to select configuration (testing vs default).
+- Instantiates Flask app via `create_app(...)`.
+- For in-memory/testing DB, creates tables on startup for fast e2e and unit tests.
+- Runs the development server if executed as __main__.
 """
 
 import os
