@@ -18,7 +18,7 @@ FLOW OVERVIEW
   • Render form / validate token and update password.
 """
 
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session, current_app
 from ..models import db, User, ActivationToken, PasswordResetToken, APIKey
 from ..utils.auth_utils import (
     create_user, send_activation_email, authenticate_user, 
@@ -88,8 +88,25 @@ def register():
     try:
         # Create user and activation token
         user, activation_token = create_user(email, password)
-        
-        # Send activation email
+
+        # In testing environment, auto-activate the account and skip email
+        app_env = current_app.config.get('ENV', 'development')
+        is_testing = current_app.config.get('TESTING', False) or app_env in ['test', 'testing']
+        if is_testing:
+            user.status = 'active'
+            if activation_token:
+                activation_token.mark_used()
+            # Provision default API keys for convenience in tests
+            APIKey.create_default_api_keys(user.id)
+            db.session.commit()
+            return jsonify({
+                'message': 'Registration successful (auto-activated for testing).',
+                'user_id': user.user_id,
+                'email': email,
+                'redirect_url': url_for('auth.login')
+            }), 201
+
+        # Send activation email in non-testing environments
         if send_activation_email(user, activation_token):
             return jsonify({
                 'message': 'Registration successful! Please check your email to activate your account.',

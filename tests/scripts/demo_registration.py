@@ -25,6 +25,8 @@ class TokenGuardDemo:
         self.base_url = "http://localhost:5000"
         self.wait_timeout = 15  # Increased timeout for better reliability
         
+    
+
     def setup_browser(self):
         """Set up Chrome WebDriver with appropriate options."""
         print("🌐 Setting up browser...")

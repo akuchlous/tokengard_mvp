@@ -224,6 +224,9 @@ def proxy_endpoint():
     is_valid_key, api_key, key_error = request_validator.validate_api_key(data, client_ip)
     if not is_valid_key:
         return jsonify(key_error), 400
+    # Ensure downstream components receive the validated key even if it arrived via header
+    # so that proxy processing (which reads from request_data) is consistent.
+    data['api_key'] = api_key
     
     # Process request through LLM proxy
     from ..utils.llm_proxy import llm_proxy
@@ -709,11 +712,26 @@ def clear_database():
 
 @api_bp.route('/cache/stats', methods=['GET'])
 def get_cache_stats():
-    """Get cache statistics."""
+    """Get cache statistics for the authenticated user scope."""
+    from flask import session
+    # Require login
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+    # Resolve authenticated user
+    user = User.query.filter_by(user_id=session['user_id']).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    # Enforce active account
+    if not user.is_active():
+        return jsonify({'error': 'Account not activated'}), 403
     try:
         from ..utils.llm_proxy import llm_proxy
-        stats = llm_proxy.get_cache_stats()
-        return jsonify(stats), 200
+        # Overall cache stats (system-wide)
+        global_stats = llm_proxy.get_cache_stats()
+        # Per-user cache info
+        user_scope = getattr(user, 'user_id', None) or str(user.id)
+        user_info = llm_cache_lookup.cache_lookup.get_user_cache_info(user_scope)
+        return jsonify({'global': global_stats, 'user': user_info}), 200
     except Exception as e:
         return jsonify({'error': f'Failed to get cache stats: {str(e)}'}), 500
 

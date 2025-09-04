@@ -94,6 +94,9 @@ def get_user_by_token(token):
 def send_activation_email(user, activation_token):
     """Send activation email to user"""
     try:
+        # In testing environments, skip printing/sending entirely
+        if current_app and (current_app.config.get('TESTING', False) or current_app.config.get('ENV') in ['test', 'testing']):
+            return True
         # In a real application, you would use Flask-Mail to send emails
         # For now, we'll just return True to simulate success
         

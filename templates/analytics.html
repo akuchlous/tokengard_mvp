@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - TokenGuard{% endblock %}
+{% block body_class %}analytics-page{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>📈 Analytics</h1>
+  <p>User: {{ user.email }} ({{ user.user_id }})</p>
+
+  <div class="analytics-grid">
+    <div class="card">
+      <h2>Recent Queries</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Status</th>
+            <th>Latency (ms)</th>
+            <th>Input Tokens</th>
+            <th>Output Tokens</th>
+            <th>Cache</th>
+          </tr>
+        </thead>
+        <tbody id="logsBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Cache Stats</h2>
+      <div id="cacheStats">
+        <div><strong>User Cache</strong></div>
+        <div>Entries: <span id="userEntries">-</span> (Active: <span id="userActive">-</span>, Expired: <span id="userExpired">-</span>)</div>
+        <div>Accesses: <span id="userAccesses">-</span></div>
+        <hr/>
+        <div><strong>Global Cache</strong></div>
+        <div>Entries: <span id="cacheEntries">-</span></div>
+        <div>Hits: <span id="cacheHits">-</span></div>
+        <div>Misses: <span id="cacheMisses">-</span></div>
+        <div>Hit Rate: <span id="cacheHitRate">-</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  async function fetchJSON(url){
+    const res = await fetch(url, {credentials: 'same-origin'});
+    if(!res.ok) throw new Error('Request failed: ' + res.status);
+    return res.json();
+  }
+
+  function formatTime(ts){
+    try { return new Date(ts).toLocaleString(); } catch(e){ return ts; }
+  }
+
+  function renderLogs(logs){
+    const tbody = document.getElementById('logsBody');
+    tbody.innerHTML = '';
+    logs.slice(0, 50).forEach(l => {
+      const tr = document.createElement('tr');
+      const cache = (l.response_body && l.response_body.cache_info && l.response_body.cache_info.from_cache) ? 'hit' : 'miss';
+      const inTok = l.response_body && l.response_body.metrics ? (l.response_body.metrics.input_tokens || '-') : '-';
+      const outTok = l.response_body && l.response_body.metrics ? (l.response_body.metrics.output_tokens || '-') : '-';
+      tr.innerHTML = `
+        <td>${formatTime(l.request_timestamp)}</td>
+        <td>${l.response_status}</td>
+        <td>${l.processing_time_ms || '-'}</td>
+        <td>${inTok}</td>
+        <td>${outTok}</td>
+        <td>${cache}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderCacheStats(resp){
+    const user = (resp.user || {});
+    const global = (resp.global || {});
+    const gstats = (global.stats || {});
+    const gentries = (global.entries || {});
+
+    document.getElementById('userEntries').textContent = (user.entries && user.entries.total) ?? '-';
+    document.getElementById('userActive').textContent = (user.entries && user.entries.active) ?? '-';
+    document.getElementById('userExpired').textContent = (user.entries && user.entries.expired) ?? '-';
+    document.getElementById('userAccesses').textContent = user.accesses ?? '-';
+
+    document.getElementById('cacheEntries').textContent = gentries.total ?? (global.size || '-');
+    document.getElementById('cacheHits').textContent = gstats.hits ?? '-';
+    document.getElementById('cacheMisses').textContent = gstats.misses ?? '-';
+    const rate = (gstats.hits || 0) + (gstats.misses || 0) > 0 ? (((gstats.hits||0) / ((gstats.hits||0)+(gstats.misses||0))) * 100).toFixed(1) + '%' : '-';
+    document.getElementById('cacheHitRate').textContent = rate;
+  }
+
+  async function refresh(){
+    try {
+      const [logsResp, cacheResp] = await Promise.all([
+        fetchJSON('/api/logs?limit=100'),
+        fetchJSON('/api/cache/stats')
+      ]);
+      renderLogs(logsResp.logs || []);
+      renderCacheStats(cacheResp || {});
+    } catch(e){
+      console.error('Analytics refresh failed', e);
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 10000);
+})();
+</script>
+{% endblock %}
+
+

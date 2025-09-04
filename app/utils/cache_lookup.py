@@ -345,6 +345,38 @@ class CacheLookup:
             self.logger.error(f"Error getting cache info: {str(e)}")
             return {}
 
+    def get_user_cache_info(self, user_scope: str) -> Dict[str, Any]:
+        """
+        Get cache information for a specific user scope.
+        """
+        try:
+            user_hash = hashlib.sha256(user_scope.encode()).hexdigest()[:16]
+            keys = self._user_index.get(user_hash, [])
+            active = 0
+            expired = 0
+            total_accesses = 0
+            for key in keys:
+                entry = self._cache.get(key)
+                if not entry:
+                    continue
+                total_accesses += entry.access_count
+                if entry.is_expired():
+                    expired += 1
+                else:
+                    active += 1
+            return {
+                'user_hash': user_hash,
+                'entries': {
+                    'total': active + expired,
+                    'active': active,
+                    'expired': expired
+                },
+                'accesses': total_accesses
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting user cache info: {str(e)}")
+            return {}
+
 
 class LLMCacheLookup:
     """Specialized cache lookup for LLM requests."""

@@ -17,38 +17,12 @@
         <div class="header-actions">
             <a href="{{ url_for('main.user_keys', user_id=user.user_id) }}" class="btn btn-secondary">← Back to Keys</a>
             <a href="{{ url_for('main.user_profile', user_id=user.user_id) }}" class="btn btn-secondary">Profile</a>
+            <a href="{{ url_for('main.user_analytics', user_id=user.user_id) }}" class="btn btn-secondary">Analytics</a>
             <a href="{{ url_for('auth.logout') }}" class="btn btn-primary">Logout</a>
         </div>
     </div>
 
-    <!-- Analytics Section -->
-    <div class="analytics-section">
-        <div class="analytics-container">
-            <h3>📊 Usage Analytics</h3>
-            <div class="analytics-grid">
-                <div class="analytics-item">
-                    <div class="analytics-value">{{ analytics.total_usage }}</div>
-                    <div class="analytics-label">Total Calls</div>
-                </div>
-                <div class="analytics-item">
-                    <div class="analytics-value">{{ analytics.recent_usage }}</div>
-                    <div class="analytics-label">Last 30 Days</div>
-                </div>
-                <div class="analytics-item">
-                    <div class="analytics-value success">{{ analytics.successful_calls }}</div>
-                    <div class="analytics-label">Successful</div>
-                </div>
-                <div class="analytics-item">
-                    <div class="analytics-value error">{{ analytics.failed_calls }}</div>
-                    <div class="analytics-label">Failed</div>
-                </div>
-                <div class="analytics-item">
-                    <div class="analytics-value rate">{{ analytics.success_rate }}%</div>
-                    <div class="analytics-label">Success Rate</div>
-                </div>
-            </div>
-        </div>
-    </div>
+    
 
     <!-- Test Form Section -->
     <div class="test-form-section">
@@ -180,8 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show results
             showResults(response.status, parsedResponse, processingTime);
             
-            // Refresh analytics after successful API call
-            refreshAnalytics();
+            // Stay on page; no auto-reload
             
         } catch (error) {
             showError('Network error: ' + error.message);
@@ -240,12 +213,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function refreshAnalytics() {
-        // Reload the page to get updated analytics
-        setTimeout(() => {
-            window.location.reload();
-        }, 2000); // Wait 2 seconds to show the results first
-    }
+    // No auto-reload function
 });
 </script>
 

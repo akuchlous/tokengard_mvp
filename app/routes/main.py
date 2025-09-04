@@ -265,6 +265,37 @@ def user_logs(user_id):
                          stats=stats_data,
                          api_keys=api_keys_data)
 
+@main_bp.route('/analytics/<user_id>')
+def user_analytics(user_id):
+    """Lightweight analytics dashboard with recent queries and cache stats."""
+    # Require login
+    if 'user_id' not in session:
+        return render_error_page('Authentication Required',
+            'You need to be logged in to access this page.', 401)
+
+    # Look up authenticated user by public user_id stored in session
+    authenticated_user = User.query.filter_by(user_id=session['user_id']).first()
+    if not authenticated_user:
+        return render_error_page('User Not Found',
+            'The requested user could not be found.', 404)
+
+    # Enforce user can only view their own analytics
+    if authenticated_user.user_id != user_id:
+        return render_error_page('Access Denied',
+            'You can only view your own analytics.', 403)
+
+    # Must be active account
+    if not authenticated_user.is_active():
+        return render_error_page('Account Not Activated',
+            'This account has not been activated yet.', 403)
+
+    user_data = {
+        'email': authenticated_user.email,
+        'user_id': authenticated_user.user_id,
+    }
+
+    return render_template('analytics.html', user=user_data)
+
 @main_bp.route('/test/<key_value>')
 def test_key(key_value):
     """Test API key page - allows users to test their API keys against the proxy endpoint."""
