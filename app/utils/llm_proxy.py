@@ -152,6 +152,16 @@ class LLMProxy:
                 # Return cached provider-like response with extra token_id
                 response_chat = cached_response['response'] or {}
                 response_chat['proxy_id'] = request_id
+                # Embed cache info for log visibility
+                try:
+                    response_chat['cache_info'] = {
+                        'cache_hit': True,
+                        'cache_key': cached_response.get('cache_key'),
+                        'cached_at': cached_response.get('cached_at'),
+                        'similarity': cached_response.get('similarity')
+                    }
+                except Exception:
+                    pass
                 response = LLMProxyResponse(
                     success=True,
                     status_code=200,
@@ -184,6 +194,11 @@ class LLMProxy:
                 # Provider-like response with extra token_id
                 chat = llm_response['data']
                 chat['proxy_id'] = request_id
+                # Explicitly mark cache miss for consistency
+                try:
+                    chat['cache_info'] = {'cache_hit': False}
+                except Exception:
+                    pass
                 response = LLMProxyResponse(
                     success=True,
                     status_code=200,

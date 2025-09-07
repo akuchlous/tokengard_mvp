@@ -72,6 +72,10 @@
                 <div class="result-value" id="processingTime">—</div>
             </div>
             <div class="result-item">
+                <div class="result-label">Server Processing Time:</div>
+                <div class="result-value" id="serverProcessingTime">—</div>
+            </div>
+            <div class="result-item">
                 <div class="result-label">Timestamp:</div>
                 <div class="result-value" id="timestamp">—</div>
             </div>
@@ -252,6 +256,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await res.json();
             document.getElementById('logTokenId').textContent = tokenId;
             document.getElementById('logEntry').innerHTML = renderLogDetails(data);
+            // Update server-side processing time in the main results section
+            const spt = (data && data.processing_time_ms != null) ? (data.processing_time_ms + 'ms') : '—';
+            const sptEl = document.getElementById('serverProcessingTime');
+            if (sptEl) sptEl.textContent = spt;
             document.getElementById('logDetailsSection').style.display = 'block';
         } catch (e) {
             document.getElementById('logTokenId').textContent = tokenId;
@@ -305,9 +313,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
         fields.forEach(([k, v]) => addRow(k, v !== undefined && v !== null ? String(v) : '—'));
 
-        // Pretty-print request/response bodies
+        // Pretty-print request/response bodies and extract cache info if present
         addRow('request_body', asPre(log.request_body || ''));
         addRow('response_body', asPre(log.response_body || ''));
+
+        try {
+            const rb = log.response_body ? JSON.parse(log.response_body) : null;
+            const cacheInfo = rb && rb.cache_info ? rb.cache_info : null;
+            if (cacheInfo) {
+                addRow('cache_hit', String(!!cacheInfo.cache_hit));
+                if (cacheInfo.cache_key) addRow('cache_key', cacheInfo.cache_key);
+                if (cacheInfo.cached_at) addRow('cached_at', String(cacheInfo.cached_at));
+                if (cacheInfo.similarity != null) addRow('similarity', String(cacheInfo.similarity));
+            }
+        } catch (e) {
+            // ignore parse errors
+        }
 
         return container.outerHTML;
     }
