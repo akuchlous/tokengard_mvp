@@ -146,6 +146,26 @@ def click_view_api_keys(driver):
     print("Clicked View API Keys. Current URL:", driver.current_url)
 
 
+def click_test_for_second_key(driver):
+    # Click the Test button for the second key (if available)
+    wait_ms(500)
+    try:
+        test_buttons = driver.find_elements("css selector", ".test-btn")
+        if len(test_buttons) >= 2:
+            btn = test_buttons[1]
+            highlight(driver, btn, "#9c27b0")
+            wait_ms(500)
+            btn.click()
+            print("Clicked Test for second key. Current URL:", driver.current_url)
+            wait_ms(800)
+            # Go back to keys page after viewing the test page
+            driver.back()
+            wait_ms(500)
+        else:
+            print("Second key test button not found (less than two keys or second is disabled).")
+    except Exception as e:
+        print(f"Failed to click Test for second key: {e}")
+
 def deactivate_first_key_and_refresh(driver):
     # Click the first Deactivate button on keys page, accept confirm, then refresh
     wait_ms(500)
@@ -185,6 +205,7 @@ def main():
         click_signin(driver, base_url)
         login(driver, demo_email, password)
         click_view_api_keys(driver)
+        click_test_for_second_key(driver)
         deactivate_first_key_and_refresh(driver)
         print("Press Enter to close the demo...")
         input()
