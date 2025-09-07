@@ -298,37 +298,45 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // Order important fields first
+        function formatResponseWithCache(responseBodyStr, cacheInfo) {
+            try {
+                const obj = responseBodyStr ? JSON.parse(responseBodyStr) : {};
+                if (cacheInfo && typeof cacheInfo === 'object') {
+                    // Attach a concise cache summary under a dedicated field for display
+                    obj.cache = {
+                        hit: !!cacheInfo.cache_hit,
+                        key: cacheInfo.cache_key || undefined,
+                        cached_at: cacheInfo.cached_at || undefined,
+                        similarity: cacheInfo.similarity != null ? cacheInfo.similarity : undefined
+                    };
+                }
+                return '<pre>' + JSON.stringify(obj, null, 2) + '</pre>';
+            } catch (e) {
+                // Fallback: show original body if not JSON
+                return asPre(responseBodyStr || '');
+            }
+        }
+
+        // Key fields (some are hidden per request)
         const fields = [
-            ['id', log.id],
-            ['request_id', log.request_id],
-            ['api_key_value', log.api_key_value],
-            ['response_status', log.response_status],
             ['processing_time_ms', log.processing_time_ms],
-            ['client_ip', log.client_ip],
-            ['user_agent', log.user_agent],
+            ['response_status', log.response_status],
             ['request_timestamp', log.request_timestamp],
             ['response_timestamp', log.response_timestamp],
+            // Hidden (advanced): uncomment to show
+            // ['id', log.id],
+            // ['request_id', log.request_id],
+            // ['api_key_value', log.api_key_value],
+            // ['client_ip', log.client_ip],
+            // ['user_agent', log.user_agent],
         ];
 
         fields.forEach(([k, v]) => addRow(k, v !== undefined && v !== null ? String(v) : '—'));
 
-        // Pretty-print request/response bodies and extract cache info if present
+        // Pretty-print request body
         addRow('request_body', asPre(log.request_body || ''));
-        addRow('response_body', asPre(log.response_body || ''));
-
-        try {
-            const rb = log.response_body ? JSON.parse(log.response_body) : null;
-            const cacheInfo = rb && rb.cache_info ? rb.cache_info : null;
-            if (cacheInfo) {
-                addRow('cache_hit', String(!!cacheInfo.cache_hit));
-                if (cacheInfo.cache_key) addRow('cache_key', cacheInfo.cache_key);
-                if (cacheInfo.cached_at) addRow('cached_at', String(cacheInfo.cached_at));
-                if (cacheInfo.similarity != null) addRow('similarity', String(cacheInfo.similarity));
-            }
-        } catch (e) {
-            // ignore parse errors
-        }
+        // Pretty-print response body augmented with cache data (if present)
+        addRow('response_body', formatResponseWithCache(log.response_body || '', log.cache_info || null));
 
         return container.outerHTML;
     }
