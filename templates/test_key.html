@@ -317,12 +317,28 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
+        function fmtMs(ms) {
+            if (ms == null) return '—';
+            return `<span class="badge badge-ms">${ms} ms</span>`;
+        }
+
+        function fmtStatus(st) {
+            if (!st) return '—';
+            const cls = st === 'key_pass' ? 'badge-success' : (st === 'server_error' ? 'badge-warn' : 'badge-info');
+            return `<span class="badge ${cls}">${st.replace('_',' ')}</span>`;
+        }
+
+        function fmtTs(ts) {
+            if (!ts) return '—';
+            try { return new Date(ts).toLocaleString(); } catch (_) { return ts; }
+        }
+
         // Key fields (some are hidden per request)
         const fields = [
-            ['processing_time_ms', log.processing_time_ms],
-            ['response_status', log.response_status],
-            ['request_timestamp', log.request_timestamp],
-            ['response_timestamp', log.response_timestamp],
+            ['processing_time_ms', fmtMs(log.processing_time_ms)],
+            ['response_status', fmtStatus(log.response_status)],
+            ['request_timestamp', fmtTs(log.request_timestamp)],
+            ['response_timestamp', fmtTs(log.response_timestamp)],
             // Hidden (advanced): uncomment to show
             // ['id', log.id],
             // ['request_id', log.request_id],
@@ -595,6 +611,18 @@ document.addEventListener('DOMContentLoaded', function() {
     color: #28a745;
     font-size: 1.5rem;
 }
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.badge-success { background: #e6f4ea; color: #1e7e34; }
+.badge-info { background: #e8f0fe; color: #1967d2; }
+.badge-warn { background: #fff4e5; color: #b26a00; }
+.badge-ms { background: #f1f3f4; color: #3c4043; }
 
 .error-container h3 {
     margin: 0 0 20px 0;
