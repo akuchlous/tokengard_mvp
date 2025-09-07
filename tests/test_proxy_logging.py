@@ -110,7 +110,7 @@ class TestProxyLogging:
         
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data['data']['status'] == 'success'
+        assert data.get('object') == 'chat.completion'
         
         # Check that log was created
         with self.app.app_context():
@@ -139,7 +139,8 @@ class TestProxyLogging:
         
         assert response.status_code == 401
         data = json.loads(response.data)
-        assert data['data']['status'] == 'authentication_failed'
+        assert 'choices' in data
+        assert 'api key' in data['choices'][0]['message']['content'].lower()
         
         # Check that log was created for invalid key attempt
         with self.app.app_context():

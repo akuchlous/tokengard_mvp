@@ -146,7 +146,7 @@ def click_view_api_keys(driver):
     print("Clicked View API Keys. Current URL:", driver.current_url)
 
 
-def deactivate_first_key(driver):
+def deactivate_first_key_and_refresh(driver):
     # Click the first Deactivate button on keys page, accept confirm, then refresh
     wait_ms(500)
     try:
@@ -161,6 +161,7 @@ def deactivate_first_key(driver):
         except Exception:
             pass
         wait_ms(800)
+        driver.refresh()
         print("Deactivated first key and refreshed page.")
     except Exception as e:
         print(f"No deactivate button found or failed to deactivate: {e}")
@@ -184,7 +185,7 @@ def main():
         click_signin(driver, base_url)
         login(driver, demo_email, password)
         click_view_api_keys(driver)
-        deactivate_first_key(driver)
+        deactivate_first_key_and_refresh(driver)
         print("Press Enter to close the demo...")
         input()
     finally:

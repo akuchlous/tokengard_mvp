@@ -50,16 +50,10 @@ class TestProxyEndpoint:
             
             assert response.status_code == 200
             data = response.get_json()
-            assert data['data']['status'] == 'success'
-            assert data['data']['message'] == 'Request processed successfully'
-            assert data['data']['key_name'] == 'key_0'
-            assert data['data']['text_length'] == 13
-            # Token/cost metadata present
-            assert 'tokens' in data['data']
-            assert 'estimated_cost' in data['data']
-            assert 'input' in data['data']['estimated_cost']
-            assert 'output' in data['data']['estimated_cost']
-            assert 'total' in data['data']['estimated_cost']
+            # OpenAI-like success
+            assert data.get('object') == 'chat.completion'
+            assert isinstance(data.get('choices'), list)
+            assert data['choices'][0]['message']['role'] == 'assistant'
     
     def test_proxy_endpoint_invalid_key(self, app, test_user_with_keys):
         """Test proxy endpoint with invalid API key"""
@@ -74,8 +68,9 @@ class TestProxyEndpoint:
             
             assert response.status_code == 401
             data = response.get_json()
-            assert data['error_code'] == 'API_KEY_NOT_FOUND'
-            assert data['message'] == 'Authentication failed'
+            # OpenAI-like error represented in assistant message content
+            assert 'choices' in data
+            assert 'api key' in data['choices'][0]['message']['content'].lower()
     
     def test_proxy_endpoint_inactive_key(self, app, test_user_with_keys):
         """Test proxy endpoint with inactive/disabled API key"""
@@ -93,8 +88,8 @@ class TestProxyEndpoint:
             
             assert response.status_code == 401
             data = response.get_json()
-            assert data['error_code'] == 'API_KEY_INACTIVE'
-            assert data['message'] == 'Authentication failed'
+            assert 'choices' in data
+            assert 'inactive' in data['choices'][0]['message']['content'].lower()
     
     def test_proxy_endpoint_missing_api_key(self, app, test_user_with_keys):
         """Test proxy endpoint with missing API key"""
@@ -156,10 +151,8 @@ class TestProxyEndpoint:
             
             assert response.status_code == 200
             data = response.get_json()
-            assert data['data']['status'] == 'success'
-            assert data['data']['message'] == 'Request processed successfully'
-            assert data['data']['key_name'] == 'key_0'
-            assert data['data']['text_length'] == 0
+            assert data.get('object') == 'chat.completion'
+            assert isinstance(data.get('choices'), list)
     
     def test_proxy_endpoint_updates_last_used(self, app, test_user_with_keys):
         """Test that proxy endpoint updates the last_used timestamp"""

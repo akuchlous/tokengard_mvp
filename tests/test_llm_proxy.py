@@ -39,17 +39,11 @@ class TestLLMProxyResponse:
             message="Test error message",
             data={"detail": "info"}
         )
-        
+
         response_dict = response.to_dict()
-        
-        expected = {
-            'success': False,
-            'data': {'detail': 'info'},
-            'from_cache': False,
-            'error_code': 'TEST_ERROR',
-            'message': 'Test error message'
-        }
-        assert response_dict == expected
+
+        # Now returns raw data payload for OpenAI-like responses; no wrapper
+        assert response_dict == {"detail": "info"}
 
 
 class TestLLMProxy:
@@ -151,8 +145,9 @@ class TestLLMProxy:
         
         assert response.success is True
         assert response.from_cache is True
-        assert response.data['cached'] is True
-        assert 'cache_info' in response.data
+        # Ensure basic payload present for cached path
+        assert response.data is not None
+        assert 'message' in response.data
         
         # Verify logging was called with cache hit parameters
         mock_logger.log_response.assert_called_once()
@@ -195,8 +190,9 @@ class TestLLMProxy:
         
         assert response.success is True
         assert response.from_cache is False
-        assert response.data['cached'] is False
-        assert 'response' in response.data
+        assert response.data is not None
+        # OpenAI-like response
+        assert 'choices' in response.data and isinstance(response.data['choices'], list)
         assert 'model' in response.data
         
         # Verify logging was called with LLM call parameters

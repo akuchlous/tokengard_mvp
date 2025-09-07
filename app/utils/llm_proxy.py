@@ -46,19 +46,8 @@ class LLMProxyResponse:
         self.from_cache = from_cache
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON response."""
-        response = {
-            'success': self.success,
-            'data': self.data,
-            'from_cache': self.from_cache
-        }
-        
-        if self.error_code:
-            response['error_code'] = self.error_code
-        if self.message:
-            response['message'] = self.message
-        
-        return response
+        """Return raw data for API response (already shaped)."""
+        return self.data
 
 
 class LLMProxy:
@@ -96,15 +85,37 @@ class LLMProxy:
             # 1. Policy checks
             policy_result = policy_checker.run_all_checks(api_key, text, client_ip)
             if not policy_result.passed:
-                from .api_utils import response_formatter
-                response_data, status_code = response_formatter.format_proxy_failure_response(policy_result, text)
-                
+                # OpenAI-like chat completion with textual reason for errors
+                reason = policy_result.message or 'Request validation failed'
+                status = 401 if policy_result.error_code in ['API_KEY_NOT_FOUND','API_KEY_INACTIVE','USER_ACCOUNT_INACTIVE'] else 400
+                error_chat = {
+                    'id': f"chatcmpl-{uuid.uuid4().hex[:29]}",
+                    'object': 'chat.completion',
+                    'created': int(time.time()),
+                    'model': model,
+                    'choices': [
+                        {
+                            'index': 0,
+                            'message': {
+                                'role': 'assistant',
+                                'content': f"Proxy error ({policy_result.error_code}): {reason}"
+                            },
+                            'finish_reason': 'stop'
+                        }
+                    ],
+                    'usage': {
+                        'prompt_tokens': 0,
+                        'completion_tokens': 0,
+                        'total_tokens': 0
+                    },
+                    'token_id': request_id
+                }
                 response = LLMProxyResponse(
                     success=False,
-                    status_code=status_code,
+                    status_code=status,
                     error_code=policy_result.error_code,
-                    message=response_data['message'],
-                    data=response_data['data']
+                    message=reason,
+                    data=error_chat
                 )
                 
                 # Log response
@@ -136,45 +147,15 @@ class LLMProxy:
             )
             
             if cache_found:
-                # Return cached response
-                from .api_utils import response_formatter
-                response_data = cached_response['response']
-                cache_info = {
-                    'cached_at': cached_response['cached_at'],
-                    'cache_key': cached_response['cache_key']
-                }
-                if 'similarity' in cached_response:
-                    cache_info['similarity'] = cached_response['similarity']
-                
-                response_data_dict = response_formatter.format_proxy_success_response(
-                    api_key_record, text, response_data, model, temperature, 
-                    cached=True, cache_info=cache_info
-                )
-
-                # Attach token and cost metadata (input only for cache hits)
-                token_info = {
-                    'input_tokens': input_tokens,
-                    'output_tokens': 0,
-                    'total_tokens': input_tokens,
-                }
-                cost_info = {
-                    'cache_hit': True,
-                    'input_cost': tk_estimate_cost(input_tokens, model, is_output=False),
-                    'output_cost': 0.0,
-                    'actual_cost': 0.0,
-                    'cost_saved': tk_estimate_cost(input_tokens, model, is_output=False),
-                }
-                response_data_dict['data']['tokens'] = token_info
-                response_data_dict['data']['estimated_cost'] = {
-                    'input': cost_info['input_cost'],
-                    'output': cost_info['output_cost'],
-                    'total': cost_info['actual_cost']
-                }
-                
+                token_info = None
+                cost_info = None
+                # Return cached provider-like response with extra token_id
+                response_chat = cached_response['response'] or {}
+                response_chat['token_id'] = request_id
                 response = LLMProxyResponse(
                     success=True,
                     status_code=200,
-                    data=response_data_dict['data'],
+                    data=response_chat,
                     from_cache=True
                 )
                 
@@ -200,68 +181,45 @@ class LLMProxy:
                     ttl=3600, model=model, temperature=temperature
                 )
                 
-                from .api_utils import response_formatter
-                response_data_dict = response_formatter.format_proxy_success_response(
-                    api_key_record, text, llm_response['data'], model, temperature, cached=False
-                )
-
-                # Count output tokens and estimate costs
-                try:
-                    # Extract assistant text for token counting
-                    choices = llm_response['data'].get('choices', [])
-                    output_text = ''
-                    if choices:
-                        msg = choices[0].get('message', {})
-                        output_text = msg.get('content', '')
-                    output_tokens = tk_count_tokens(output_text or '', model)
-                except Exception:
-                    output_tokens = 0
-
-                total_tokens = input_tokens + output_tokens
-                input_cost = tk_estimate_cost(input_tokens, model, is_output=False)
-                output_cost = tk_estimate_cost(output_tokens, model, is_output=True)
-                total_cost = round(input_cost + output_cost, 6)
-
-                token_info = {
-                    'input_tokens': input_tokens,
-                    'output_tokens': output_tokens,
-                    'total_tokens': total_tokens,
-                }
-                cost_info = {
-                    'cache_hit': False,
-                    'input_cost': input_cost,
-                    'output_cost': output_cost,
-                    'actual_cost': total_cost,
-                }
-                response_data_dict['data']['tokens'] = token_info
-                response_data_dict['data']['estimated_cost'] = {
-                    'input': input_cost,
-                    'output': output_cost,
-                    'total': total_cost
-                }
-                
+                # Provider-like response with extra token_id
+                chat = llm_response['data']
+                chat['token_id'] = request_id
                 response = LLMProxyResponse(
                     success=True,
                     status_code=200,
-                    data=response_data_dict['data']
+                    data=chat
                 )
             else:
+                # OpenAI-like chat completion with textual reason on LLM service error
+                reason = 'LLM service temporarily unavailable. Please try again later.'
+                error_chat = {
+                    'id': f"chatcmpl-{uuid.uuid4().hex[:29]}",
+                    'object': 'chat.completion',
+                    'created': int(time.time()),
+                    'model': model,
+                    'choices': [
+                        {
+                            'index': 0,
+                            'message': {
+                                'role': 'assistant',
+                                'content': f"Proxy error (LLM_SERVICE_ERROR): {reason}"
+                            },
+                            'finish_reason': 'stop'
+                        }
+                    ],
+                    'usage': {
+                        'prompt_tokens': 0,
+                        'completion_tokens': 0,
+                        'total_tokens': 0
+                    },
+                    'token_id': request_id
+                }
                 response = LLMProxyResponse(
                     success=False,
                     status_code=500,
                     error_code='LLM_SERVICE_ERROR',
-                    message='LLM service temporarily unavailable. Please try again later.',
-                    data={
-                        'status': 'error',
-                        'model': model, 
-                        'temperature': temperature,
-                        'processing_info': {
-                            'policy_checks_passed': True,
-                            'cache_hit': False,
-                            'llm_service_used': False,
-                            'llm_service_error': llm_response.get('error', 'Unknown error')
-                        }
-                    }
+                    message=reason,
+                    data=error_chat
                 )
             
             # Log response
@@ -270,7 +228,7 @@ class LLMProxy:
                                     response.status_code, processing_time,
                                     api_key_record, client_ip, user_agent, data=request_data,
                                     model=model, from_cache=False,
-                                    token_info=locals().get('token_info'), cost_info=locals().get('cost_info'))
+                                    token_info=None, cost_info=None)
             metrics_collector.record_request('/api/proxy', response.status_code, 
                                            processing_time, client_ip)
 

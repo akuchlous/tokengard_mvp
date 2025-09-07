@@ -170,10 +170,11 @@ class TestProxyEndpointWithBannedKeywords:
                              })
         assert response.status_code == 400
         data = json.loads(response.data)
-        assert data['data']['status'] == 'content_blocked'
-        assert 'banned keyword' in data['data']['error_details']
-        # The banned keyword is mentioned in the error details
-        assert 'spam' in data['data']['error_details']
+        # OpenAI-like error body in message content
+        assert 'choices' in data
+        msg = data['choices'][0]['message']['content'].lower()
+        assert 'banned' in msg or 'blocked' in msg
+        assert 'spam' in msg
     
     def test_proxy_with_clean_content(self, client, db_session, test_user, test_api_key):
         """Test proxy endpoint allowing clean content."""
@@ -191,10 +192,10 @@ class TestProxyEndpointWithBannedKeywords:
                              })
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data['data']['status'] == 'success'
-        # Verify the response contains expected fields
-        assert 'key_name' in data['data']
-        assert 'message' in data['data']
+        assert data.get('object') == 'chat.completion'
+        # Verify OpenAI-like fields exist
+        assert isinstance(data.get('choices'), list)
+        assert data['choices'][0]['message']['role'] == 'assistant'
     
     def test_proxy_with_external_api_blocking(self, client, db_session, test_user, test_api_key):
         """Test proxy endpoint with external API blocking."""
@@ -210,8 +211,8 @@ class TestProxyEndpointWithBannedKeywords:
                              })
         assert response.status_code == 400
         data = json.loads(response.data)
-        assert data['data']['status'] == 'content_blocked'
-        assert 'external service' in data['data']['error_details']
+        assert 'choices' in data
+        assert 'blocked' in data['choices'][0]['message']['content'].lower()
     
     def test_proxy_with_repetitive_content(self, client, db_session, test_user, test_api_key):
         """Test proxy endpoint with repetitive content."""
@@ -227,8 +228,8 @@ class TestProxyEndpointWithBannedKeywords:
                              })
         assert response.status_code == 400
         data = json.loads(response.data)
-        assert data['data']['status'] == 'content_blocked'
-        assert 'external service' in data['data']['error_details']
+        assert 'choices' in data
+        assert 'blocked' in data['choices'][0]['message']['content'].lower()
     
     def test_proxy_without_text(self, client, db_session, test_user, test_api_key):
         """Test proxy endpoint without text content."""
@@ -245,8 +246,8 @@ class TestProxyEndpointWithBannedKeywords:
                              })
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data['data']['status'] == 'success'
-        assert data['data']['text_length'] == 0
+        assert data.get('object') == 'chat.completion'
+        assert isinstance(data.get('choices'), list)
 
 
 class TestBannedKeywordsRoutes:

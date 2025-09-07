@@ -29,6 +29,7 @@ import os
 from datetime import datetime
 from ..utils.prom_metrics import metrics_latest, CONTENT_TYPE_LATEST
 from ..utils.cache_lookup import llm_cache_lookup
+from ..models import ProxyLog
 
 api_bp = Blueprint('api', __name__)
 
@@ -182,6 +183,51 @@ def session_debug():
             ]
     
     return jsonify(response_data)
+
+
+@api_bp.route('/logs/<int:proxy_log_id>', methods=['GET'])
+def get_proxy_log_by_id(proxy_log_id):
+    """Fetch a single proxy log by database id (proxy_log_id).
+
+    SECURITY: Requires a valid API key belonging to the owner of the log.
+    Accepts API key via JSON body (api_key), query (?api_key=), or X-API-Key header.
+    """
+    try:
+        # Find the log first
+        log = ProxyLog.query.filter_by(id=proxy_log_id).first()
+        if not log:
+            return jsonify({'error': 'Log not found'}), 404
+
+        # Extract api_key from multiple places
+        api_key = None
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            api_key = (data.get('api_key') or '').strip()
+        if not api_key:
+            api_key = (request.args.get('api_key') or '').strip()
+        if not api_key:
+            api_key = (request.headers.get('X-API-Key') or '').strip()
+
+        if not api_key:
+            return jsonify({'error': 'API key required'}), 401
+
+        # Validate API key and authorize access to the log
+        from ..utils.policy_checks import policy_checker
+        result = policy_checker.validate_api_key(api_key)
+        if not result.passed:
+            return jsonify({'error': 'Invalid or inactive API key', 'code': result.error_code}), 401
+
+        user = result.details['user']
+        # Ensure the log belongs to this user's keys
+        from ..models import APIKey
+        user_keys = APIKey.query.filter_by(user_id=user.id).all()
+        user_key_values = {k.key_value for k in user_keys}
+        if log.api_key_value not in user_key_values:
+            return jsonify({'error': 'Access denied for this log'}), 403
+
+        return jsonify(log.to_dict()), 200
+    except Exception as e:
+        return jsonify({'error': f'Failed to retrieve log: {str(e)}'}), 500
 
 @api_bp.route('/proxy', methods=['POST'])
 def proxy_endpoint():

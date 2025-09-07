@@ -47,7 +47,7 @@ class TestBannedKeywordsWithRealAPIKey:
         # If authenticated, success should be True
         data = resp.get_json()
         if resp.status_code == 200:
-            assert data.get('success') is True
+            assert data.get('object') == 'chat.completion'
 
     def test_proxy_blocks_banned_keywords(self):
         # Insert banned keywords directly
@@ -73,5 +73,6 @@ class TestBannedKeywordsWithRealAPIKey:
                 # If 200, ensure success payload present (depends on policy config)
                 assert 'data' in data
             else:
-                # 400: likely banned content
-                assert data.get('success') is False
+                # 400: likely banned content, reason in message
+                assert 'choices' in data
+                assert any(term in data['choices'][0]['message']['content'].lower() for term in ['banned', 'blocked', 'error'])

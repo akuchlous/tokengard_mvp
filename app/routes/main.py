@@ -108,8 +108,28 @@ def user_keys(user_id):
         return render_error_page('Account Not Activated',
             'This account has not been activated yet.', 403)
 
-    # Load API keys for this user (using internal DB id), ordered by key name
-    api_keys = APIKey.query.filter_by(user_id=authenticated_user.id).order_by(APIKey.key_name).all()
+    # Load API keys
+    # If the user just deactivated a key in this session, keep current ordering
+    # for this single render so the row stays in place. On subsequent visits,
+    # disabled keys will be pushed to the bottom.
+    keep_order_once = session.pop('keep_keys_order', None)
+    if keep_order_once:
+        api_keys = (
+            APIKey.query
+            .filter_by(user_id=authenticated_user.id)
+            .order_by(APIKey.key_name)
+            .all()
+        )
+    else:
+        api_keys = (
+            APIKey.query
+            .filter_by(user_id=authenticated_user.id)
+            .order_by(
+                db.case((APIKey.state == 'enabled', 0), else_=1),
+                APIKey.key_name
+            )
+            .all()
+        )
 
     # Prepare data for template
     keys_data = [
@@ -163,6 +183,9 @@ def deactivate_key(key_id):
         flash(f'API key "{api_key.key_name}" has been deactivated.', 'success')
     else:
         flash(f'API key "{api_key.key_name}" is already inactive.', 'warning')
+
+    # Ensure next render keeps the current order; subsequent visits will sort.
+    session['keep_keys_order'] = True
 
     # Redirect back to keys page
     return redirect(url_for('main.user_keys', user_id=authenticated_user.user_id))

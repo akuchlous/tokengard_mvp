@@ -103,12 +103,16 @@
                                 </td>
                                 <td class="col-test">
                                     <div class="test-cell">
-                                        <a href="{{ url_for('main.test_key', key_value=key.key_value) }}" 
-                                           class="test-btn" 
-                                           title="Test this API key">
-                                            <span class="btn-icon">🧪</span>
-                                            <span class="btn-text">Test</span>
-                                        </a>
+                                        {% if key.state.lower() == 'enabled' %}
+                                            <a href="{{ url_for('main.test_key', key_value=key.key_value) }}" 
+                                               class="test-btn" 
+                                               title="Test this API key">
+                                                <span class="btn-icon">🧪</span>
+                                                <span class="btn-text">Test</span>
+                                            </a>
+                                        {% else %}
+                                            <span class="disabled-action" title="Disabled keys cannot be tested">—</span>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -129,7 +133,7 @@
 
     <!-- Footer -->
     <div class="keys-footer">
-        <p><a href="{{ url_for('main.home') }}" class="home-link">← Back to Home</a></p>
+        <p><a href="{{ url_for('main.user_profile', user_id=user.user_id) }}" class="home-link">← Back to Home</a></p>
     </div>
 </div>
 
