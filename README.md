@@ -73,7 +73,7 @@ Token counting uses OpenAI's tiktoken with model-aware encodings. Per-1k pricing
 - Functions:
   - `count_tokens(text, model)` → token count using tiktoken
   - `estimate_cost(token_count, model, is_output=False)` → USD cost using `pricing.json`
-- Proxy response is OpenAI-shaped with one extra field `token_id` (use it to fetch detailed logs). Example success response:
+- Proxy response is OpenAI-shaped with one extra field `proxy_id` used to fetch detailed logs. Example success response:
 
 ```json
 {
@@ -93,7 +93,7 @@ Token counting uses OpenAI's tiktoken with model-aware encodings. Per-1k pricing
     "completion_tokens": 24,
     "total_tokens": 36
   },
-  "token_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  "proxy_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 }
 ```
 
@@ -117,9 +117,9 @@ Token counting uses OpenAI's tiktoken with model-aware encodings. Per-1k pricing
 
 ### Secure Proxy Logs Lookup
 
-- Endpoint: `/api/logs/<token_id>`
+- Endpoint: `/api/logs/<proxy_id>` accepts the UUID `proxy_id` returned in responses.
 - Auth: Requires a valid API key belonging to the owner of the log. The key can be provided via JSON (`{"api_key": "..."}`), query string (`?api_key=...`), or `X-API-Key` header.
-- Returns detailed proxy log and analytics for correlation using `token_id`.
+- Returns detailed proxy log and analytics for correlation using `proxy_id`.
 
 ## Available Make Commands
 

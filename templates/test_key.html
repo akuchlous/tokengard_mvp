@@ -83,7 +83,7 @@
         <div class="results-container">
             <h3>Proxy Log Details</h3>
             <div class="result-item">
-                <div class="result-label">token_id:</div>
+                <div class="result-label">proxy_id:</div>
                 <div class="result-value" id="logTokenId">—</div>
             </div>
             <div class="result-item">
@@ -190,8 +190,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('responseBody').innerHTML = formatResponse(response);
         document.getElementById('processingTime').textContent = processingTime + 'ms';
         document.getElementById('timestamp').textContent = new Date().toLocaleString();
-        // Show token_id if present (OpenAI-like response with extra field)
-        const tokenId = response && response.token_id ? response.token_id : null;
+        // Show proxy_id
+        const tokenId = response && response.proxy_id ? response.proxy_id : null;
         document.getElementById('proxyToken').textContent = tokenId || '—';
         
         // Add status-specific styling
@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsSection.style.display = 'block';
         resultsSection.scrollIntoView({ behavior: 'smooth' });
 
-        // Fetch and show proxy log details if token_id is available
+        // Fetch and show proxy log details if proxy_id is available
         if (tokenId) {
             fetchProxyLogDetails(tokenId);
         }
@@ -251,13 +251,65 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             const data = await res.json();
             document.getElementById('logTokenId').textContent = tokenId;
-            document.getElementById('logEntry').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            document.getElementById('logEntry').innerHTML = renderLogDetails(data);
             document.getElementById('logDetailsSection').style.display = 'block';
         } catch (e) {
             document.getElementById('logTokenId').textContent = tokenId;
             document.getElementById('logEntry').innerHTML = '<pre>Error: ' + e.message + '</pre>';
             document.getElementById('logDetailsSection').style.display = 'block';
         }
+    }
+
+    function renderLogDetails(log) {
+        const container = document.createElement('div');
+        container.className = 'log-details-grid';
+
+        function addRow(label, valueHtml) {
+            const row = document.createElement('div');
+            row.className = 'log-row';
+            const l = document.createElement('div');
+            l.className = 'log-label';
+            l.textContent = label + ':';
+            const v = document.createElement('div');
+            v.className = 'log-value';
+            v.innerHTML = valueHtml;
+            row.appendChild(l);
+            row.appendChild(v);
+            container.appendChild(row);
+        }
+
+        function asPre(objOrText) {
+            try {
+                if (typeof objOrText === 'string') {
+                    const parsed = JSON.parse(objOrText);
+                    return '<pre>' + JSON.stringify(parsed, null, 2) + '</pre>';
+                }
+                return '<pre>' + JSON.stringify(objOrText, null, 2) + '</pre>';
+            } catch (_) {
+                return '<pre>' + String(objOrText) + '</pre>';
+            }
+        }
+
+        // Order important fields first
+        const fields = [
+            ['id', log.id],
+            ['request_id', log.request_id],
+            ['api_key_value', log.api_key_value],
+            ['response_status', log.response_status],
+            ['processing_time_ms', log.processing_time_ms],
+            ['client_ip', log.client_ip],
+            ['user_agent', log.user_agent],
+            ['request_timestamp', log.request_timestamp],
+            ['response_timestamp', log.response_timestamp],
+        ];
+
+        fields.forEach(([k, v]) => addRow(k, v !== undefined && v !== null ? String(v) : '—'));
+
+        // Pretty-print request/response bodies
+        addRow('request_body', asPre(log.request_body || ''));
+        addRow('response_body', asPre(log.response_body || ''));
+
+        return container.outerHTML;
     }
     
     // No auto-reload function

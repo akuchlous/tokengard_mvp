@@ -108,7 +108,7 @@ class LLMProxy:
                         'completion_tokens': 0,
                         'total_tokens': 0
                     },
-                    'token_id': request_id
+                    'proxy_id': request_id
                 }
                 response = LLMProxyResponse(
                     success=False,
@@ -151,7 +151,7 @@ class LLMProxy:
                 cost_info = None
                 # Return cached provider-like response with extra token_id
                 response_chat = cached_response['response'] or {}
-                response_chat['token_id'] = request_id
+                response_chat['proxy_id'] = request_id
                 response = LLMProxyResponse(
                     success=True,
                     status_code=200,
@@ -183,7 +183,7 @@ class LLMProxy:
                 
                 # Provider-like response with extra token_id
                 chat = llm_response['data']
-                chat['token_id'] = request_id
+                chat['proxy_id'] = request_id
                 response = LLMProxyResponse(
                     success=True,
                     status_code=200,
@@ -212,7 +212,7 @@ class LLMProxy:
                         'completion_tokens': 0,
                         'total_tokens': 0
                     },
-                    'token_id': request_id
+                    'proxy_id': request_id
                 }
                 response = LLMProxyResponse(
                     success=False,

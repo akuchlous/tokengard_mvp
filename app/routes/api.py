@@ -185,16 +185,28 @@ def session_debug():
     return jsonify(response_data)
 
 
-@api_bp.route('/logs/<int:proxy_log_id>', methods=['GET'])
-def get_proxy_log_by_id(proxy_log_id):
-    """Fetch a single proxy log by database id (proxy_log_id).
+@api_bp.route('/logs/<proxy_id>', methods=['GET'])
+def get_proxy_log_by_id(proxy_id):
+    """Fetch a single proxy log by `proxy_id` (UUID request_id) or numeric DB id.
 
     SECURITY: Requires a valid API key belonging to the owner of the log.
     Accepts API key via JSON body (api_key), query (?api_key=), or X-API-Key header.
     """
     try:
-        # Find the log first
-        log = ProxyLog.query.filter_by(id=proxy_log_id).first()
+        # Find the log by UUID request_id or numeric id
+        log = None
+        try:
+            # Try UUID match on request_id
+            log = ProxyLog.query.filter_by(request_id=str(proxy_id)).first()
+        except Exception:
+            log = None
+        if not log:
+            # Fallback: if numeric, try DB id
+            try:
+                numeric_id = int(proxy_id)
+                log = ProxyLog.query.filter_by(id=numeric_id).first()
+            except Exception:
+                log = None
         if not log:
             return jsonify({'error': 'Log not found'}), 404
 

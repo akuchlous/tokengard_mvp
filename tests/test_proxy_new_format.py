@@ -47,7 +47,7 @@ def test_proxy_success_openai_shape_with_token_id():
     assert isinstance(data.get('choices'), list) and data['choices']
     assert 'usage' in data
     # Extra field
-    assert 'token_id' in data and isinstance(data['token_id'], str)
+    assert 'proxy_id' in data and isinstance(data['proxy_id'], str)
 
 
 def test_proxy_policy_error_openai_error_with_token_id():
@@ -63,7 +63,7 @@ def test_proxy_policy_error_openai_error_with_token_id():
     # Error reason in choices[0].message.content for standardized OpenAI-like envelope
     assert 'choices' in data
     assert 'api key' in data['choices'][0]['message']['content'].lower()
-    assert 'token_id' in data
+    assert 'proxy_id' in data
 
 
 def test_get_proxy_log_by_id_requires_api_key_and_authorized():
