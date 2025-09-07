@@ -780,6 +780,45 @@ def get_metrics():
         return jsonify({'error': f'Failed to get metrics: {str(e)}'}), 500
 
 
+@api_bp.route('/proxy/smoke', methods=['POST'])
+def proxy_smoke_test():
+    """
+    Guarded smoke test for LLM proxy. In non-production environments, executes a
+    minimal proxy request. In production, requires X-Confirmation-Token to match
+    SMOKE_TEST_TOKEN (env) and will still run a minimal request.
+    """
+    import os
+    from ..utils.llm_proxy import llm_proxy
+    from ..utils.api_utils import request_validator
+
+    env = os.getenv('FLASK_ENV', 'development').lower()
+    is_production = env == 'production'
+    if is_production:
+        token = request.headers.get('X-Confirmation-Token')
+        expected = os.getenv('SMOKE_TEST_TOKEN', '')
+        if not expected or token != expected:
+            return jsonify({'error': 'Unauthorized smoke test'}), 401
+
+    # Validate JSON but allow empty to default
+    is_valid, data, err = request_validator.validate_json_request(request.remote_addr)
+    if not is_valid:
+        data = {}
+
+    api_key = data.get('api_key') or request.headers.get('X-API-Key') or ''
+    text = data.get('text') or 'Health check: respond with OK.'
+    model = data.get('model') or 'gpt-4o'
+    temperature = data.get('temperature') if data.get('temperature') is not None else 0.7
+
+    payload = {'api_key': api_key, 'text': text, 'model': model, 'temperature': temperature}
+
+    try:
+        client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
+        user_agent = request.headers.get('User-Agent')
+        resp = llm_proxy.process_request(payload, client_ip, user_agent)
+        return jsonify(resp.to_dict()), resp.status_code
+    except Exception as e:
+        return jsonify({'success': False, 'error_code': 'SMOKE_TEST_ERROR', 'message': str(e)}), 500
+
 @api_bp.route('/cache/invalidate/<api_key>', methods=['POST'])
 def invalidate_user_cache(api_key):
     """Invalidate cache for a specific user."""

@@ -100,10 +100,9 @@ class TestAPIKeyModel:
         assert api_key.state == 'disabled'
         assert api_key.is_enabled() is False
         
-        # Test enable
-        api_key.enable()
-        assert api_key.state == 'enabled'
-        assert api_key.is_enabled() is True
+        # Test enable is prohibited
+        with pytest.raises(ValueError):
+            api_key.enable()
     
     def test_api_key_refresh(self, app, db_session, test_user):
         """Test refreshing API key values"""

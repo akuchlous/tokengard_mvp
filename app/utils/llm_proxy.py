@@ -22,10 +22,14 @@ import json
 import logging
 from typing import Dict, Any, Optional, Tuple
 from flask import request, current_app
+import os
+import random
 from .policy_checks import policy_checker, PolicyCheckResult
 from .cache_lookup import llm_cache_lookup
 from .proxy_logger import proxy_logger, metrics_collector
 from .token_utils import count_tokens as tk_count_tokens, estimate_cost as tk_estimate_cost
+from ..models import db
+from ..models import ProxyAnalytics, ProviderAnalytics
 
 
 class LLMProxyResponse:
@@ -186,7 +190,7 @@ class LLMProxy:
                 
                 return response
             
-            # 4. Forward to LLM service (stub implementation)
+            # 4. Forward to LLM service
             llm_response = self._call_llm_service(text, model, temperature)
             
             if llm_response['success']:
@@ -269,6 +273,25 @@ class LLMProxy:
                                     token_info=locals().get('token_info'), cost_info=locals().get('cost_info'))
             metrics_collector.record_request('/api/proxy', response.status_code, 
                                            processing_time, client_ip)
+
+            # Persist analytics
+            try:
+                self._persist_analytics(
+                    request_id=request_id,
+                    api_key_record=api_key_record,
+                    user=user,
+                    model=model,
+                    temperature=temperature,
+                    cache_hit=False,
+                    response=response,
+                    processing_time_ms=processing_time,
+                    token_info=locals().get('token_info'),
+                    cost_info=locals().get('cost_info'),
+                    provider=llm_response.get('provider'),
+                    llm_data=llm_response.get('data') if llm_response.get('success') else None
+                )
+            except Exception as e:
+                self.logger.error(f"Failed to persist analytics: {str(e)}")
             
             # Update API key last used
             if response.success:
@@ -311,7 +334,8 @@ class LLMProxy:
     def _call_llm_service(self, text: str, model: str = 'default', 
                          temperature: float = 0.7) -> Dict[str, Any]:
         """
-        Call the LLM service (stub implementation).
+        Call the LLM service. Uses OpenAI in production if `OPEN_AI_API_KEYS` is set,
+        otherwise falls back to a stubbed response.
         
         Args:
             text: Text to process
@@ -322,15 +346,23 @@ class LLMProxy:
             Dictionary with success status and response data
         """
         try:
-            # This is a stub implementation
-            # In a real implementation, you would call OpenAI, Anthropic, or other LLM services
-            
-            self.logger.info(f"Calling LLM service: model={model}, temperature={temperature}")
-            
-            # Simulate LLM processing time
-            time.sleep(0.1)  # Simulate network delay
-            
-            # Generate a mock response
+            is_testing = False
+            try:
+                # Prefer Flask config flag when available
+                is_testing = bool(getattr(current_app, 'config', {}).get('TESTING'))
+            except Exception:
+                is_testing = os.getenv('FLASK_ENV', '').lower() in ['test', 'testing']
+
+            keys_env = os.getenv('OPEN_AI_API_KEYS', '')
+            api_keys = [k.strip() for k in keys_env.split(',') if k.strip()]
+            should_use_openai = (not is_testing) and len(api_keys) > 0
+
+            if should_use_openai:
+                return self._call_openai(text=text, model=model, temperature=temperature, api_keys=api_keys)
+
+            # Fallback to stub implementation
+            self.logger.info(f"Using stub LLM response (testing or no OPEN_AI_API_KEYS). model={model}, temperature={temperature}")
+            time.sleep(0.05)
             mock_response = {
                 'id': f"chatcmpl-{uuid.uuid4().hex[:29]}",
                 'object': 'chat.completion',
@@ -352,18 +384,170 @@ class LLMProxy:
                     'total_tokens': len(text.split()) + 20
                 }
             }
-            
-            return {
-                'success': True,
-                'data': mock_response
-            }
-            
+            return {'success': True, 'data': mock_response, 'provider': 'stub'}
+
         except Exception as e:
-            self.logger.error(f"Error calling LLM service: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e)
+            self.logger.error(f"Error choosing LLM service path: {str(e)}", exc_info=True)
+            return {'success': False, 'error': str(e)}
+
+    def _call_openai(self, text: str, model: str, temperature: float, api_keys: list) -> Dict[str, Any]:
+        """Call OpenAI Chat Completions with structured logging and error handling."""
+        try:
+            try:
+                from openai import OpenAI
+            except Exception as import_err:
+                self.logger.error("OpenAI SDK not installed or failed to import", exc_info=True)
+                return {'success': False, 'error': f"OPENAI_SDK_IMPORT_ERROR: {str(import_err)}"}
+
+            api_key = random.choice(api_keys)
+            masked_key = f"***{api_key[-4:]}" if len(api_key) >= 4 else "***"
+
+            # Log outbound call without sensitive payload
+            self.logger.info(
+                json.dumps({
+                    'event': 'openai_request_start',
+                    'provider': 'openai',
+                    'model': model,
+                    'temperature': temperature,
+                    'text_preview': (text[:80] + '...') if text and len(text) > 80 else (text or ''),
+                    'text_len': len(text or ''),
+                    'api_key_last4': masked_key,
+                })
+            )
+
+            client = OpenAI(api_key=api_key)
+
+            started_at = time.time()
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[
+                    { 'role': 'system', 'content': 'You are a helpful assistant.' },
+                    { 'role': 'user', 'content': text or '' },
+                ],
+                temperature=float(temperature) if temperature is not None else 0.7,
+            )
+            elapsed_ms = int((time.time() - started_at) * 1000)
+
+            # Normalize to our internal structure similar to stub
+            data = {
+                'id': getattr(completion, 'id', f"chatcmpl-{uuid.uuid4().hex[:29]}"),
+                'object': 'chat.completion',
+                'created': int(time.time()),
+                'model': model,
+                'choices': [
+                    {
+                        'index': 0,
+                        'message': {
+                            'role': 'assistant',
+                            'content': (completion.choices[0].message.content if completion.choices else '')
+                        },
+                        'finish_reason': getattr(completion.choices[0], 'finish_reason', 'stop') if completion.choices else 'stop'
+                    }
+                ],
+                'usage': {
+                    'prompt_tokens': getattr(getattr(completion, 'usage', None), 'prompt_tokens', 0) or 0,
+                    'completion_tokens': getattr(getattr(completion, 'usage', None), 'completion_tokens', 0) or 0,
+                    'total_tokens': getattr(getattr(completion, 'usage', None), 'total_tokens', 0) or 0,
+                }
             }
+
+            self.logger.info(
+                json.dumps({
+                    'event': 'openai_request_success',
+                    'provider': 'openai',
+                    'model': model,
+                    'elapsed_ms': elapsed_ms,
+                    'api_key_last4': masked_key,
+                    'usage': data.get('usage'),
+                })
+            )
+
+            return {'success': True, 'data': data, 'provider': 'openai'}
+
+        except Exception as e:
+            # Attempt to extract structured error info
+            err_text = str(e)
+            status = None
+            try:
+                # Some OpenAI errors have HTTP status attributes
+                status = getattr(e, 'status_code', None) or getattr(e, 'status', None)
+            except Exception:
+                status = None
+
+            self.logger.error(
+                json.dumps({
+                    'event': 'openai_request_error',
+                    'provider': 'openai',
+                    'model': model,
+                    'status': status,
+                    'error': err_text[:500],
+                }),
+                exc_info=True
+            )
+            # Map common error types to messages (rate limit, auth, etc.)
+            if status == 401 or 'authentication' in err_text.lower():
+                message = 'OpenAI authentication failed'
+            elif status == 429 or 'rate limit' in err_text.lower():
+                message = 'OpenAI rate limit exceeded'
+            elif status and int(status) >= 500:
+                message = 'OpenAI service error'
+            else:
+                message = 'OpenAI request failed'
+
+            return {'success': False, 'error': f"{message}: {err_text}", 'provider': 'openai'}
+
+    def _persist_analytics(self, request_id: str, api_key_record, user, model: str,
+                           temperature: float, cache_hit: bool, response: LLMProxyResponse,
+                           processing_time_ms: int, token_info: Dict[str, Any],
+                           cost_info: Dict[str, Any], provider: Optional[str], llm_data: Optional[Dict[str, Any]]):
+        """Persist proxy-level analytics and provider-specific analytics if available."""
+        try:
+            pa = ProxyAnalytics(
+                request_id=request_id,
+                api_key_id=(api_key_record.id if api_key_record else None),
+                api_key_value=(api_key_record.key_value if api_key_record else None),
+                user_id=(user.id if user else None),
+                model=model,
+                provider=provider,
+                temperature=float(temperature) if temperature is not None else None,
+                cache_hit=bool(cache_hit or response.from_cache),
+                success=bool(response.success),
+                status_code=int(response.status_code or 0),
+                error_code=response.error_code,
+                input_tokens=(token_info or {}).get('input_tokens'),
+                output_tokens=(token_info or {}).get('output_tokens'),
+                total_tokens=(token_info or {}).get('total_tokens'),
+                cost_input=(cost_info or {}).get('input_cost'),
+                cost_output=(cost_info or {}).get('output_cost'),
+                cost_total=(cost_info or {}).get('actual_cost'),
+                processing_time_ms=processing_time_ms,
+                client_ip=request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR')),
+                user_agent=request.headers.get('User-Agent')
+            )
+            db.session.add(pa)
+
+            # Provider-specific analytics (generic)
+            if provider and llm_data:
+                usage = llm_data.get('usage') or {}
+                pa2 = ProviderAnalytics(
+                    request_id=request_id,
+                    completion_id=llm_data.get('id'),
+                    model=llm_data.get('model'),
+                    provider=provider,
+                    prompt_tokens=usage.get('prompt_tokens'),
+                    completion_tokens=usage.get('completion_tokens'),
+                    total_tokens=usage.get('total_tokens'),
+                    raw_response=json.dumps(llm_data)[:100000]
+                )
+                db.session.add(pa2)
+
+            db.session.commit()
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            raise e
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""

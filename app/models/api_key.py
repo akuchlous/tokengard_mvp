@@ -44,9 +44,13 @@ class APIKey(db.Model):
         db.session.commit()
     
     def enable(self):
-        """Enable the API key"""
-        self.state = 'enabled'
-        db.session.commit()
+        """Prohibit re-enabling an API key once disabled.
+
+        Business rule: API keys are immutable with respect to enabling. Once
+        disabled, they cannot be re-enabled for security/auditability. Callers
+        should issue a new key instead.
+        """
+        raise ValueError("API keys cannot be re-enabled; create a new key instead")
     
     def update_last_used(self):
         """Update the last used timestamp"""

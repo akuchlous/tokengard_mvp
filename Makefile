@@ -101,11 +101,11 @@ test-security: kill
 
 # Demo user registration flow
 demo: kill
-	@echo "🚀 Starting Demo: User Registration Flow"
-	@echo "=========================================="
+	@echo "🚀 Starting Demo: Open Home Page"
+	@echo "================================"
 	@echo "1. Killing existing Flask processes..."
 	@echo "2. Starting Flask server in background..."
-	@echo "3. Opening browser and running demo script..."
+	@echo "3. Opening homepage with Selenium..."
 	@echo ""
 	@echo "Starting Flask server..."
 	@cp config.env .env
@@ -122,8 +122,8 @@ demo: kill
 			sleep 2; \
 		fi; \
 	done
-	@echo "Running demo script..."
-	@python tests/scripts/demo_registration.py
+	@echo "Running Selenium demo (press Enter in terminal to end)..."
+	@python tests/scripts/demo_open_home.py
 	@echo ""
 	@echo "Demo completed! The Flask server is still running in the background."
 	@echo "To stop the server, run 'make kill' or find and kill the Python process."
