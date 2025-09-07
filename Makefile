@@ -23,6 +23,7 @@ help:
 	@echo "  format     - Format code with black"
 	@echo "  check      - Run all checks (lint + test)"
 	@echo "  deploy-aws - Deploy to AWS (S3 + CloudFront)"
+	@echo "  release    - Run tests, bump version tag, and push tag"
 
 # Install dependencies
 install:
@@ -76,6 +77,18 @@ test: kill
 	@echo "Setting up test environment..."
 	cp config.test.env .env
 	pytest tests/ -v
+
+# Release: run tests and tag a version automatically
+release: test
+	@echo "All tests passed. Creating a new version tag..."
+	@LATEST_TAG=$$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"); \
+	MAJOR=$${LATEST_TAG#v}; MAJOR=$${MAJOR%%.*}; \
+	MINOR=$${LATEST_TAG#v$${MAJOR}.}; MINOR=$${MINOR%%.*}; \
+	PATCH=$${LATEST_TAG##*.}; \
+	NEW_TAG=v$${MAJOR}.$${MINOR}.$$((PATCH+1)); \
+	echo "Tagging $$NEW_TAG"; \
+	git tag -a $$NEW_TAG -m "Auto release $$NEW_TAG"; \
+	git push origin $$NEW_TAG
 
 # Set up test environment
 test-env:
