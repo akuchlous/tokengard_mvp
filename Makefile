@@ -109,7 +109,9 @@ demo: kill
 	@echo ""
 	@echo "Starting Flask server..."
 	@cp config.env .env
-	@python app.py &
+	@LOG_FILE=demo_server.log; \
+	( python app.py > $$LOG_FILE 2>&1 & ); \
+	echo "Flask logs -> $$LOG_FILE"
 	@echo "Waiting for server to start..."
 	@sleep 5
 	@echo "Checking server health..."
@@ -123,7 +125,7 @@ demo: kill
 		fi; \
 	done
 	@echo "Running Selenium demo (press Enter in terminal to end)..."
-	@python tests/scripts/demo_open_home.py
+	@DEMO_LOG_FILE=demo_server.log python tests/scripts/demo.py
 	@echo ""
 	@echo "Demo completed! The Flask server is still running in the background."
 	@echo "To stop the server, run 'make kill' or find and kill the Python process."

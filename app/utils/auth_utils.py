@@ -21,7 +21,7 @@ import secrets
 from datetime import datetime, timedelta
 from flask_mail import Message
 from ..models import db, User, ActivationToken, PasswordResetToken
-from flask import current_app
+from flask import current_app, url_for
 
 def hash_password(password):
     """Hash a password using SHA-256"""
@@ -108,8 +108,14 @@ def send_activation_email(user, activation_token):
         # )
         # mail.send(msg)
         
-        print(f"Activation email would be sent to {user.email}")
-        print(f"Activation token: {activation_token.token}")
+        print(f"Activation email would be sent to {user.email}", flush=True)
+        print(f"Activation token: {activation_token.token}", flush=True)
+        try:
+            activation_url = url_for('auth.activate_account', token=activation_token.token, _external=True)
+            print(f"Activation link: {activation_url}", flush=True)
+        except Exception:
+            # Fallback to relative path if external URL cannot be constructed
+            print(f"Activation link: /auth/activate/{activation_token.token}", flush=True)
         
         return True
         
