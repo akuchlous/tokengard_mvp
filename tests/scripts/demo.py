@@ -184,7 +184,7 @@ def main():
         click_signin(driver, base_url)
         login(driver, demo_email, password)
         click_view_api_keys(driver)
-        deactivate_first_key_and_refresh(driver)
+        deactivate_first_key(driver)
         print("Press Enter to close the demo...")
         input()
     finally:
