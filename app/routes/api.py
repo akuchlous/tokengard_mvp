@@ -237,7 +237,32 @@ def get_proxy_log_by_id(proxy_id):
         if log.api_key_value not in user_key_values:
             return jsonify({'error': 'Access denied for this log'}), 403
 
-        return jsonify(log.to_dict()), 200
+        # Attach cache details (if any) by parsing response body
+        log_dict = log.to_dict()
+        # Prefer cache_info extracted from stored response_body; otherwise try raw stored log
+        cache_info = None
+        try:
+            rb = json.loads(log_dict.get('response_body') or '{}')
+            cache_info = rb.get('cache_info')
+        except Exception:
+            cache_info = None
+        if not cache_info:
+            try:
+                rb2 = json.loads(log.response_body or '{}') if hasattr(log, 'response_body') else {}
+                cache_info = rb2.get('cache_info')
+            except Exception:
+                cache_info = None
+        if not cache_info:
+            try:
+                # Some code paths log an already-enriched payload
+                parsed_logged = json.loads(log.request_body or '{}')
+                if isinstance(parsed_logged, dict) and 'cache_info' in parsed_logged:
+                    cache_info = parsed_logged['cache_info']
+            except Exception:
+                pass
+        if cache_info:
+            log_dict['cache_info'] = cache_info
+        return jsonify(log_dict), 200
     except Exception as e:
         return jsonify({'error': f'Failed to retrieve log: {str(e)}'}), 500
 

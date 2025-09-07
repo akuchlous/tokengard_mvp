@@ -120,7 +120,13 @@ class LLMProxy:
                 
                 # Log response
                 processing_time = int((time.time() - start_time) * 1000)
-                proxy_logger.log_response(request_id, response.to_dict(), 
+                # Enrich log with cache_info (always false on policy failure)
+                log_payload = dict(response.to_dict())
+                try:
+                    log_payload['cache_info'] = {'cache_hit': False}
+                except Exception:
+                    pass
+                proxy_logger.log_response(request_id, log_payload, 
                                         response.status_code, processing_time,
                                         client_ip=client_ip, user_agent=user_agent, data=request_data,
                                         model=model, from_cache=False)
@@ -152,16 +158,7 @@ class LLMProxy:
                 # Return cached provider-like response with extra token_id
                 response_chat = cached_response['response'] or {}
                 response_chat['proxy_id'] = request_id
-                # Embed cache info for log visibility
-                try:
-                    response_chat['cache_info'] = {
-                        'cache_hit': True,
-                        'cache_key': cached_response.get('cache_key'),
-                        'cached_at': cached_response.get('cached_at'),
-                        'similarity': cached_response.get('similarity')
-                    }
-                except Exception:
-                    pass
+                # Do not include cache_info in main response; will be visible in logs endpoint
                 response = LLMProxyResponse(
                     success=True,
                     status_code=200,
@@ -169,9 +166,19 @@ class LLMProxy:
                     from_cache=True
                 )
                 
-                # Log response
+                # Log response (include cache_info for visibility)
                 processing_time = int((time.time() - start_time) * 1000)
-                proxy_logger.log_response(request_id, response.to_dict(), 
+                log_payload = dict(response.to_dict())
+                try:
+                    log_payload['cache_info'] = {
+                        'cache_hit': True,
+                        'cache_key': cached_response.get('cache_key'),
+                        'cached_at': cached_response.get('cached_at'),
+                        'similarity': cached_response.get('similarity')
+                    }
+                except Exception:
+                    pass
+                proxy_logger.log_response(request_id, log_payload, 
                                         response.status_code, processing_time,
                                         api_key_record, client_ip, user_agent, data=request_data,
                                         model=model, from_cache=True,
@@ -194,11 +201,7 @@ class LLMProxy:
                 # Provider-like response with extra token_id
                 chat = llm_response['data']
                 chat['proxy_id'] = request_id
-                # Explicitly mark cache miss for consistency
-                try:
-                    chat['cache_info'] = {'cache_hit': False}
-                except Exception:
-                    pass
+                # Do not include cache_info in main response; will be visible in logs endpoint
                 response = LLMProxyResponse(
                     success=True,
                     status_code=200,
@@ -239,7 +242,14 @@ class LLMProxy:
             
             # Log response
             processing_time = int((time.time() - start_time) * 1000)
-            proxy_logger.log_response(request_id, response.to_dict(), 
+            log_payload = dict(response.to_dict())
+            # For non-cache paths, mark cache_hit false explicitly
+            try:
+                if 'cache_info' not in log_payload:
+                    log_payload['cache_info'] = {'cache_hit': False}
+            except Exception:
+                pass
+            proxy_logger.log_response(request_id, log_payload, 
                                     response.status_code, processing_time,
                                     api_key_record, client_ip, user_agent, data=request_data,
                                     model=model, from_cache=False,
