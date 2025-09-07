@@ -163,6 +163,19 @@ def click_test_for_second_key(driver):
     except Exception as e:
         print(f"Failed to click Test for second key: {e}")
 
+def set_test_payload_text(driver, text_value):
+    # On the test page, set the payload textarea to include banned text
+    wait_ms(300)
+    try:
+        textarea = driver.find_element("css selector", "#payload")
+        payload = '{"text": "%s"}' % text_value.replace('"', '\\"')
+        textarea.clear()
+        textarea.send_keys(payload)
+        print("Set test payload to:", payload)
+        wait_ms(300)
+    except Exception as e:
+        print(f"Failed to set test payload: {e}")
+
 def click_test_api_key(driver):
     # On the test page, click the "Test API Key" button
     wait_ms(500)
@@ -242,9 +255,10 @@ def main():
         login(driver, demo_email, password)
         click_view_api_keys(driver)
         click_test_for_second_key(driver)
+        set_test_payload_text(driver, "hello adult! check LLM for banned keyword \"adult\"")
         click_test_api_key(driver)
-        click_back_to_keys(driver)
-        deactivate_first_key_and_refresh(driver)
+        # click_back_to_keys(driver)
+        # deactivate_first_key_and_refresh(driver)
         print("Press Enter to close the demo...")
         input()
     finally:
