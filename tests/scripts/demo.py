@@ -235,6 +235,15 @@ def deactivate_first_key_and_refresh(driver):
     except Exception as e:
         print(f"No deactivate button found or failed to deactivate: {e}")
 
+def scroll_to_results(driver):
+    # Scroll results section into view for clarity
+    try:
+        results = driver.find_element("css selector", "#resultsSection")
+        driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth'});", results)
+        wait_ms(500)
+    except Exception:
+        pass
+
 def main():
     base_url = "http://localhost:5000"
     password = "DemoPass123!"
@@ -255,8 +264,22 @@ def main():
         login(driver, demo_email, password)
         click_view_api_keys(driver)
         click_test_for_second_key(driver)
-        set_test_payload_text(driver, "hello adult! check LLM for banned keyword \"adult\"")
+        # First LLM call (expect non-cache)
+        set_test_payload_text(driver, "what is the significance of number 42")
         click_test_api_key(driver)
+        scroll_to_results(driver)
+        wait_ms(1000)
+        # Second semantically similar LLM call (expect cache hit)
+        try:
+            driver.refresh()
+            wait_ms(800)
+        except Exception:
+            pass
+        set_test_payload_text(driver, "tell me about 42 number")
+        click_test_api_key(driver)
+        scroll_to_results(driver)
+        wait_ms(1000)
+        # Optional: go back to keys and deactivate
         # click_back_to_keys(driver)
         # deactivate_first_key_and_refresh(driver)
         print("Press Enter to close the demo...")
