@@ -158,13 +158,49 @@ def click_test_for_second_key(driver):
             btn.click()
             print("Clicked Test for second key. Current URL:", driver.current_url)
             wait_ms(800)
-            # Go back to keys page after viewing the test page
-            driver.back()
-            wait_ms(500)
         else:
             print("Second key test button not found (less than two keys or second is disabled).")
     except Exception as e:
         print(f"Failed to click Test for second key: {e}")
+
+def click_test_api_key(driver):
+    # On the test page, click the "Test API Key" button
+    wait_ms(500)
+    try:
+        btn = driver.find_element("css selector", "#testBtn")
+        highlight(driver, btn, "#4caf50")
+        wait_ms(500)
+        btn.click()
+        print("Clicked 'Test API Key'.")
+        wait_ms(1000)
+    except Exception as e:
+        print(f"Failed to click 'Test API Key': {e}")
+
+def click_back_to_keys(driver):
+    # From test page, navigate back to the keys list
+    wait_ms(500)
+    try:
+        # Prefer the explicit Back to Keys link in header
+        link = driver.find_element("css selector", ".test-header a[href*='/keys/']")
+        highlight(driver, link, "#2196f3")
+        wait_ms(300)
+        link.click()
+        wait_ms(700)
+        print("Navigated back to keys page.")
+    except Exception:
+        try:
+            # Fallback to any keys link on the page
+            link = driver.find_element("css selector", "a[href*='/keys/']")
+            highlight(driver, link, "#2196f3")
+            wait_ms(300)
+            link.click()
+            wait_ms(700)
+            print("Navigated back to keys page (fallback).")
+        except Exception as e:
+            # Last resort: browser back
+            print(f"Could not find Back to Keys link, using browser back: {e}")
+            driver.back()
+            wait_ms(700)
 
 def deactivate_first_key_and_refresh(driver):
     # Click the first Deactivate button on keys page, accept confirm, then refresh
@@ -206,6 +242,8 @@ def main():
         login(driver, demo_email, password)
         click_view_api_keys(driver)
         click_test_for_second_key(driver)
+        click_test_api_key(driver)
+        click_back_to_keys(driver)
         deactivate_first_key_and_refresh(driver)
         print("Press Enter to close the demo...")
         input()
