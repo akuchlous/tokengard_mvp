@@ -408,6 +408,26 @@ class LLMCacheLookup:
         self.last_best_similarity: Optional[float] = None
         # Track last best matched prompt text for external access
         self.last_best_prompt_text: Optional[str] = None
+        # Per-user similarity thresholds (by user scope hash or id)
+        self._user_similarity_thresholds: Dict[str, float] = {}
+
+    def set_user_similarity_threshold(self, user_scope: str, threshold: float) -> None:
+        """Set per-user similarity threshold (0.0 - 1.0)."""
+        try:
+            t = max(0.0, min(1.0, float(threshold)))
+        except Exception:
+            t = self.similarity_threshold
+        self._user_similarity_thresholds[str(user_scope)] = t
+
+    def get_user_similarity_threshold(self, user_scope: str) -> float:
+        """Get per-user similarity threshold; defaults to instance-level threshold for unseen users."""
+        scope = str(user_scope)
+        if scope in self._user_similarity_thresholds:
+            return self._user_similarity_thresholds[scope]
+        # Initialize with instance default (can be configured to 0.75 in app)
+        default_t = float(self.similarity_threshold)
+        self._user_similarity_thresholds[scope] = default_t
+        return default_t
     
     def _ensure_model(self) -> None:
         """Load the SentenceTransformer model once lazily."""
@@ -484,14 +504,16 @@ class LLMCacheLookup:
                 candidate_count=len(candidate_keys),
                 best_score=best_score,
                 lookup_ms=lookup_ms,
-                hit=(best_score >= self.similarity_threshold)
+                hit=(best_score >= self.get_user_similarity_threshold(api_key))
             )
             try:
                 observe_cache_lookup(api_key_hash, lookup_ms / 1000.0, (best_score >= self.similarity_threshold), best_score)
             except Exception:
                 pass
 
-            if best_entry_key is not None and best_score >= self.similarity_threshold:
+            # Compare against per-user threshold
+            threshold = self.get_user_similarity_threshold(api_key)
+            if best_entry_key is not None and best_score >= threshold:
                 found, cached_response = self.cache_lookup.get(best_entry_key)
                 if found:
                     # Attach similarity to response metadata

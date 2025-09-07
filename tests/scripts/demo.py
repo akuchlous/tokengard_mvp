@@ -21,6 +21,7 @@ def create_chrome_driver():
     options = ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--start-maximized")
     # For headless, uncomment the next line
     # options.add_argument("--headless=new")
     return webdriver.Chrome(options=options)
@@ -41,7 +42,13 @@ def wait_ms(ms=500):
 
 
 def open_home(driver, base_url):
-    driver.set_window_size(1280, 900)
+    try:
+        driver.maximize_window()
+    except Exception:
+        try:
+            driver.set_window_size(1920, 1080)
+        except Exception:
+            pass
     driver.get(base_url)
     print(f"Opened {base_url}")
     print(f"Page title: {driver.title}")
@@ -188,17 +195,50 @@ def scroll_to_results(driver):
 def run_cache_demo(driver):
     """Run an additional cache demo on the same test page."""
     try:
-        # Cold call
+        def scroll_to_payload():
+            try:
+                el = driver.find_element("css selector", "#payload")
+                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth'});", el)
+                wait_ms(500)
+            except Exception:
+                pass
+
+        def scroll_to_log_details():
+            try:
+                el = driver.find_element("css selector", "#logDetailsSection")
+                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth'});", el)
+                wait_ms(500)
+            except Exception:
+                pass
+
+        # 1) Cold call
+        scroll_to_payload()
         set_test_payload_text(driver, "what is the significance of number 42")
+        wait_ms(1000)
+        click_test_api_key(driver)
+        scroll_to_results(driver)
+        wait_ms(500)
+        scroll_to_log_details()
+        wait_ms(500)
+
+        # 2) Semantically similar call (expect cache hit)
+        scroll_to_payload()
+        set_test_payload_text(driver, "tell me about 42 number")
+        wait_ms(1000)
         click_test_api_key(driver)
         scroll_to_results(driver)
         wait_ms(1000)
-        # Semantically similar call (expect cache hit)
-        driver.refresh()
-        wait_ms(800)
-        set_test_payload_text(driver, "tell me about 42 number")
+        scroll_to_log_details()
+        wait_ms(500)
+
+        # 3) Another similar variant
+        scroll_to_payload()
+        set_test_payload_text(driver, "tell me number 42 in detail")
+        wait_ms(1000)
         click_test_api_key(driver)
         scroll_to_results(driver)
+        wait_ms(1000)
+        scroll_to_log_details()
         wait_ms(1000)
     except Exception as e:
         print(f"Cache demo encountered an issue: {e}")

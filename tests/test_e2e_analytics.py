@@ -132,6 +132,22 @@ class TestAnalyticsUnit:
             assert b'stats-summary' in response.data
             assert b'excel-table-container' in response.data
     
+    def test_analytics_page_requires_auth(self):
+        """Analytics page should require authentication."""
+        with self.app.test_client() as client:
+            response = client.get(f'/analytics/{self.user.user_id}')
+            assert response.status_code == 401
+    
+    def test_analytics_page_self_only(self):
+        """Analytics page should only be viewable by the same logged-in user."""
+        with self.app.test_client() as client:
+            # Login as real user
+            with client.session_transaction() as sess:
+                sess['user_id'] = self.user.user_id
+            # Attempt to view another user's analytics
+            response = client.get('/analytics/OTHERUSER1234')
+            assert response.status_code == 403
+    
     def test_analytics_statistics_display(self):
         """Test that analytics statistics are displayed correctly."""
         with self.app.test_client() as client:

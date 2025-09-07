@@ -4,30 +4,69 @@
 {% block body_class %}analytics-page{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container analytics">
   <h1>📈 Analytics</h1>
-  <p>User: {{ user.email }} ({{ user.user_id }})</p>
+  <p class="subtle">User: {{ user.email }} ({{ user.user_id }})</p>
 
-  <div class="analytics-grid">
-    <div class="card">
-      <h2>Recent Queries</h2>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Status</th>
-            <th>Latency (ms)</th>
-            <th>Input Tokens</th>
-            <th>Output Tokens</th>
-            <th>Cache</th>
-          </tr>
-        </thead>
-        <tbody id="logsBody"></tbody>
-      </table>
+  <!-- Key Filter -->
+  <section class="filter-section">
+    <label for="keyFilter"><strong>Filter by API Key</strong></label>
+    <select id="keyFilter">
+      <option value="">All Keys</option>
+      {% for k in api_keys %}
+      <option value="{{ k.key_value }}" {% if k.state != 'enabled' %}disabled{% endif %}>{{ k.key_name }} ({{ k.state }})</option>
+      {% endfor %}
+    </select>
+    <p class="explain">Choose a specific key to scope the analytics. Disabled keys are shown but not selectable.</p>
+  </section>
+
+  <!-- Summary KPIs -->
+  <section class="kpi-section">
+    <h2>Overview</h2>
+    <p class="explain">High-level summary of your proxy usage: total calls, success/failure split, and average latency.</p>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Calls</div>
+        <div class="kpi-value" id="kpiTotal">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Success</div>
+        <div class="kpi-value success" id="kpiSuccess">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Failed</div>
+        <div class="kpi-value error" id="kpiFailed">-</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Latency</div>
+        <div class="kpi-value" id="kpiLatency">-</div>
+      </div>
     </div>
+  </section>
 
+  <!-- Charts Row -->
+  <section class="charts-section">
+    <div class="chart-card">
+      <div class="chart-head">
+        <h3>Requests Over Time</h3>
+        <p class="explain">Trend of requests per minute to visualize spikes and patterns.</p>
+      </div>
+      <canvas id="chartRequests" height="120"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-head">
+        <h3>Cache Hit vs Miss</h3>
+        <p class="explain">Recent cache efficiency based on the last 100 requests.</p>
+      </div>
+      <canvas id="chartCache" height="120"></canvas>
+    </div>
+  </section>
+
+  <!-- Cache Stats + Breakdown -->
+  <section class="cards-section">
     <div class="card">
       <h2>Cache Stats</h2>
+      <p class="explain">Snapshot of per-user and global cache sizes and hit rate.</p>
       <div id="cacheStats">
         <div><strong>User Cache</strong></div>
         <div>Entries: <span id="userEntries">-</span> (Active: <span id="userActive">-</span>, Expired: <span id="userExpired">-</span>)</div>
@@ -40,13 +79,76 @@
         <div>Hit Rate: <span id="cacheHitRate">-</span></div>
       </div>
     </div>
-  </div>
+    <div class="card">
+      <h2>Status Breakdown</h2>
+      <p class="explain">Distribution of outcomes to understand error patterns.</p>
+      <div class="pill-list" id="statusBreakdown"></div>
+    </div>
+  </section>
+
+  <!-- Recent Table -->
+  <section class="table-section">
+    <h2>Recent Queries</h2>
+    <p class="explain">Last 100 requests with key details for quick inspection.</p>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Status</th>
+          <th>Latency (ms)</th>
+          <th>Input Tokens</th>
+          <th>Output Tokens</th>
+          <th>Cache</th>
+        </tr>
+      </thead>
+      <tbody id="logsBody"></tbody>
+    </table>
+  </section>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function(){
+  // Lightweight inline charts using Canvas 2D API
+  function drawLineChart(canvas, labels, values, color){
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = canvas.clientWidth;
+    const h = canvas.height = canvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+    const pad = 24;
+    const maxVal = Math.max(1, Math.max.apply(null, values));
+    const step = (w - pad*2) / Math.max(1, values.length - 1);
+    ctx.strokeStyle = color || '#667eea';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const x = pad + i * step;
+      const y = pad + (h - pad*2) * (1 - (v / maxVal));
+      if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+
+  function drawBarChart(canvas, labels, values, colors){
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = canvas.clientWidth;
+    const h = canvas.height = canvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+    const pad = 24;
+    const maxVal = Math.max(1, Math.max.apply(null, values));
+    const barW = (w - pad*2) / values.length * 0.6;
+    values.forEach((v, i) => {
+      const x = pad + i * ((w - pad*2) / values.length) + ((w - pad*2) / values.length - barW)/2;
+      const hVal = (h - pad*2) * (v / maxVal);
+      const y = h - pad - hVal;
+      ctx.fillStyle = (colors && colors[i]) || '#28a745';
+      ctx.fillRect(x, y, barW, hVal);
+    });
+  }
+
   async function fetchJSON(url){
     const res = await fetch(url, {credentials: 'same-origin'});
     if(!res.ok) throw new Error('Request failed: ' + res.status);
@@ -95,23 +197,114 @@
     document.getElementById('cacheHitRate').textContent = rate;
   }
 
+  function currentKeyParam(){
+    const sel = document.getElementById('keyFilter');
+    const v = sel ? sel.value.trim() : '';
+    return v ? ('&api_key=' + encodeURIComponent(v)) : '';
+  }
+
+  function computeKPIs(logs){
+    const total = logs.length;
+    let success = 0, failed = 0, latSum = 0, latCount = 0;
+    logs.forEach(l => {
+      if(l.response_status === 'key_pass') success++; else failed++;
+      if(typeof l.processing_time_ms === 'number'){ latSum += l.processing_time_ms; latCount++; }
+    });
+    const avg = latCount > 0 ? Math.round(latSum / latCount) + ' ms' : '-';
+    document.getElementById('kpiTotal').textContent = total;
+    document.getElementById('kpiSuccess').textContent = success;
+    document.getElementById('kpiFailed').textContent = failed;
+    document.getElementById('kpiLatency').textContent = avg;
+  }
+
+  function renderStatusBreakdown(logs){
+    const el = document.getElementById('statusBreakdown');
+    if(!el) return;
+    const counts = logs.reduce((acc, l) => { acc[l.response_status] = (acc[l.response_status]||0)+1; return acc; }, {});
+    el.innerHTML = '';
+    Object.keys(counts).sort().forEach(k => {
+      const pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.textContent = k + ': ' + counts[k];
+      el.appendChild(pill);
+    });
+  }
+
+  function renderCharts(logs){
+    // Requests over time (per minute for last ~100 entries)
+    const byMinute = {};
+    logs.forEach(l => {
+      const ts = l.request_timestamp ? new Date(l.request_timestamp) : null;
+      if(!ts) return;
+      const key = ts.getFullYear()+'-'+(ts.getMonth()+1)+'-'+ts.getDate()+' '+ts.getHours()+':'+String(ts.getMinutes()).padStart(2,'0');
+      byMinute[key] = (byMinute[key]||0)+1;
+    });
+    const labels = Object.keys(byMinute).sort();
+    const values = labels.map(k => byMinute[k]);
+    drawLineChart(document.getElementById('chartRequests'), labels, values, '#667eea');
+
+    // Cache hit vs miss (bar)
+    let hits = 0, misses = 0;
+    logs.forEach(l => {
+      const body = l.response_body;
+      // We store proxy log details separately; use response_status heuristic + cache_info in details if present
+      // Here assume cache hit recorded in server-side details; fallback to MISS
+      try {
+        const obj = typeof body === 'string' ? JSON.parse(body) : body;
+        const cache = obj && obj.cache && obj.cache.hit;
+        if(cache) hits++; else misses++;
+      } catch(_) { misses++; }
+    });
+    drawBarChart(document.getElementById('chartCache'), ['Hit','Miss'], [hits, misses], ['#28a745','#1967d2']);
+  }
+
   async function refresh(){
     try {
+      const keyQ = currentKeyParam();
       const [logsResp, cacheResp] = await Promise.all([
-        fetchJSON('/api/logs?limit=100'),
+        fetchJSON('/api/logs?limit=100' + keyQ),
         fetchJSON('/api/cache/stats')
       ]);
       renderLogs(logsResp.logs || []);
       renderCacheStats(cacheResp || {});
+      computeKPIs(logsResp.logs || []);
+      renderStatusBreakdown(logsResp.logs || []);
+      renderCharts(logsResp.logs || []);
     } catch(e){
       console.error('Analytics refresh failed', e);
     }
   }
 
+  const sel = document.getElementById('keyFilter');
+  if(sel){ sel.addEventListener('change', refresh); }
   refresh();
   setInterval(refresh, 10000);
 })();
 </script>
+<style>
+.analytics .subtle{ color:#666; margin-top:-6px; }
+.filter-section{ background:#fff; border:1px solid #eee; border-radius:10px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin:18px 0; }
+.filter-section select{ margin-left:8px; padding:6px 10px; }
+.kpi-section{ margin:18px 0; }
+.explain{ color:#666; font-size:0.9rem; margin:6px 0 12px; }
+.kpi-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:12px; }
+.kpi-card{ background:#fff; border:1px solid #eee; border-radius:10px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+.kpi-label{ font-size:0.85rem; color:#777; }
+.kpi-value{ font-size:1.8rem; font-weight:700; }
+.kpi-value.success{ color:#1e7e34; }
+.kpi-value.error{ color:#dc3545; }
+.charts-section{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:18px 0; }
+.chart-card{ background:#fff; border:1px solid #eee; border-radius:10px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+.chart-head h3{ margin:0; }
+.cards-section{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:18px 0; }
+.card{ background:#fff; border:1px solid #eee; border-radius:10px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+.pill-list{ display:flex; flex-wrap:wrap; gap:8px; }
+.pill{ background:#f1f3f4; color:#3c4043; border-radius:999px; padding:4px 10px; font-size:0.85rem; }
+.table-section{ background:#fff; border:1px solid #eee; border-radius:10px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); margin:18px 0; }
+.table{ width:100%; border-collapse:collapse; }
+.table th, .table td{ padding:8px 10px; border-bottom:1px solid #f0f0f0; text-align:left; font-size:0.95rem; }
+@media (max-width: 900px){ .charts-section, .cards-section{ grid-template-columns:1fr; } }
+</style>
 {% endblock %}
 
 

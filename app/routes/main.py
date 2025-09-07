@@ -77,7 +77,6 @@ def user_profile(user_id):
             'status': authenticated_user.status,
             'created_at': authenticated_user.created_at.strftime('%B %d, %Y')
         }
-
         return render_template('user.html', user=user_data)
 
     except Exception:
@@ -322,8 +321,18 @@ def user_analytics(user_id):
         'email': authenticated_user.email,
         'user_id': authenticated_user.user_id,
     }
+    # Provide user's API keys for filtering in analytics
+    user_api_keys = APIKey.query.filter_by(user_id=authenticated_user.id).all()
+    api_keys_data = [
+        {
+            'key_name': key.key_name,
+            'key_value': key.key_value,
+            'state': key.state
+        }
+        for key in user_api_keys
+    ]
 
-    return render_template('analytics.html', user=user_data)
+    return render_template('analytics.html', user=user_data, api_keys=api_keys_data)
 
 @main_bp.route('/test/<key_value>')
 def test_key(key_value):
