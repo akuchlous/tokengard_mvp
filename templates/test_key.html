@@ -87,6 +87,10 @@
         <div class="results-container">
             <h3>Proxy Log Details</h3>
             <div class="result-item">
+                <div class="result-label">Cache:</div>
+                <div class="result-value" id="logCacheSummary">—</div>
+            </div>
+            <div class="result-item">
                 <div class="result-label">proxy_id:</div>
                 <div class="result-value" id="logTokenId">—</div>
             </div>
@@ -260,6 +264,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const spt = (data && data.processing_time_ms != null) ? (data.processing_time_ms + 'ms') : '—';
             const sptEl = document.getElementById('serverProcessingTime');
             if (sptEl) sptEl.textContent = spt;
+            // Update cache summary badge
+            const summaryEl = document.getElementById('logCacheSummary');
+            const cacheInfo = data && data.cache_info ? data.cache_info : null;
+            if (cacheInfo && typeof cacheInfo.cache_hit !== 'undefined') {
+                const isHit = !!cacheInfo.cache_hit;
+                const badgeClass = isHit ? 'badge badge-success' : 'badge badge-info';
+                summaryEl.innerHTML = `<span class="${badgeClass}">${isHit ? 'HIT' : 'MISS'}</span>`;
+            } else {
+                summaryEl.textContent = '—';
+            }
             document.getElementById('logDetailsSection').style.display = 'block';
         } catch (e) {
             document.getElementById('logTokenId').textContent = tokenId;
