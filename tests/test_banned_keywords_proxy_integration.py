@@ -49,7 +49,8 @@ class TestBannedKeywordsProxyIntegration:
         test_text = "This is a test message with spam content"
         
         response = self.client.post('/api/proxy', json={'api_key': api_key, 'text': test_text})
-        assert response.status_code in (200, 401)
+        # With defaults auto-populated, this may be blocked (400) or unauthorized (401)
+        assert response.status_code in (200, 400, 401)
         
         # Now let's test with a mock banned keywords setup
         # Since we can't easily set up banned keywords without authentication,
@@ -122,7 +123,7 @@ class TestBannedKeywordsProxyIntegration:
         test_text = "This message contains spam and scam content"
         
         response = self.client.post('/api/proxy', json={'api_key': api_key, 'text': test_text})
-        assert response.status_code in (200, 401)
+        assert response.status_code in (200, 400, 401)
         
         # Step 2: Test with different API keys
         print("   Step 2: Testing with different API keys...")

@@ -174,7 +174,8 @@ class LLMProxy:
                         'cache_hit': True,
                         'cache_key': cached_response.get('cache_key'),
                         'cached_at': cached_response.get('cached_at'),
-                        'similarity': cached_response.get('similarity')
+                        'similarity': cached_response.get('similarity'),
+                        'matched_prompt': getattr(llm_cache_lookup, 'last_best_prompt_text', None)
                     }
                 except Exception:
                     pass
@@ -246,7 +247,11 @@ class LLMProxy:
             # For non-cache paths, mark cache_hit false explicitly
             try:
                 if 'cache_info' not in log_payload:
-                    log_payload['cache_info'] = {'cache_hit': False}
+                    log_payload['cache_info'] = {
+                        'cache_hit': False,
+                        'max_similarity': getattr(llm_cache_lookup, 'last_best_similarity', None),
+                        'matched_prompt': getattr(llm_cache_lookup, 'last_best_prompt_text', None)
+                    }
             except Exception:
                 pass
             proxy_logger.log_response(request_id, log_payload, 

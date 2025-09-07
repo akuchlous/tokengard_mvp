@@ -195,7 +195,7 @@ class TestDefaultAPIKeyCreation:
         
         # Verify first key is created correctly
         first_key = api_keys[0]
-        assert first_key.key_name == 'key_0'
+        assert first_key.key_name == 'A_KEY'
         assert first_key.key_value.startswith('tk-')
         assert len(first_key.key_value) == 35
         assert first_key.state == 'enabled'
@@ -205,9 +205,12 @@ class TestDefaultAPIKeyCreation:
         db_keys = APIKey.query.filter_by(user_id=test_user.id).all()
         assert len(db_keys) == 10
         
-        # Verify key names are key_0 through key_9
+        # Verify key names are A_KEY through J_KEY
         key_names = [key.key_name for key in db_keys]
-        expected_names = [f'key_{i}' for i in range(10)]
+        expected_names = [
+            'A_KEY','B_KEY','C_KEY','D_KEY','E_KEY',
+            'F_KEY','G_KEY','H_KEY','I_KEY','J_KEY'
+        ]
         assert sorted(key_names) == sorted(expected_names)
     
     def test_default_api_key_uniqueness(self, app, db_session):
@@ -233,8 +236,8 @@ class TestDefaultAPIKeyCreation:
         assert len(api_keys2) == 10
         
         # Verify first keys have correct names
-        assert api_keys1[0].key_name == 'key_0'
-        assert api_keys2[0].key_name == 'key_0'
+        assert api_keys1[0].key_name == 'A_KEY'
+        assert api_keys2[0].key_name == 'A_KEY'
         
         # Verify they have different key values
         assert api_keys1[0].key_value != api_keys2[0].key_value

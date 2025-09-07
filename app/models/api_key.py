@@ -78,8 +78,12 @@ class APIKey(db.Model):
         """Create 10 default API keys for a new user"""
         api_keys = []
         
+        name_letters = [
+            'A_KEY','B_KEY','C_KEY','D_KEY','E_KEY',
+            'F_KEY','G_KEY','H_KEY','I_KEY','J_KEY'
+        ]
         for i in range(10):
-            key_name = f"key_{i}"
+            key_name = name_letters[i]
             key_value = generate_api_key_value()
             
             api_key = cls(

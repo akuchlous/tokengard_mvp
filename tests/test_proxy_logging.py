@@ -74,21 +74,21 @@ class TestProxyLogging:
         # Create API keys
         self.api_key1 = APIKey(
             user_id=self.user1.id,
-            key_name='key_0',
+            key_name='A_KEY',
             key_value='tk-testkey123456789012345678901234'
         )
         db.session.add(self.api_key1)
         
         self.api_key2 = APIKey(
             user_id=self.user1.id,
-            key_name='key_1',
+            key_name='B_KEY',
             key_value='tk-testkey234567890123456789012345'
         )
         db.session.add(self.api_key2)
         
         self.api_key3 = APIKey(
             user_id=self.user2.id,
-            key_name='key_0',
+            key_name='A_KEY',
             key_value='tk-testkey345678901234567890123456'
         )
         db.session.add(self.api_key3)
@@ -371,7 +371,7 @@ class TestProxyLogAPI:
         # Create API key
         self.api_key = APIKey(
             user_id=self.user.id,
-            key_name='key_0',
+            key_name='A_KEY',
             key_value='tk-testkey123456789012345678901234'
         )
         db.session.add(self.api_key)

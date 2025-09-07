@@ -37,7 +37,8 @@ class TestProxyEndpoint:
     def test_proxy_endpoint_valid_key(self, app, test_user_with_keys):
         """Test proxy endpoint with valid, active API key"""
         user, api_keys = test_user_with_keys
-        active_key = api_keys[0]  # key_0 should be active
+
+        active_key = api_keys[0]  # A_KEY should be active
         
         with app.test_client() as client:
             response = client.post('/api/proxy', 
@@ -75,7 +76,7 @@ class TestProxyEndpoint:
     def test_proxy_endpoint_inactive_key(self, app, test_user_with_keys):
         """Test proxy endpoint with inactive/disabled API key"""
         user, api_keys = test_user_with_keys
-        inactive_key = api_keys[1]  # key_1 was disabled in fixture
+        inactive_key = api_keys[1]  # B_KEY was disabled in fixture
         
         with app.test_client() as client:
             response = client.post('/api/proxy', 

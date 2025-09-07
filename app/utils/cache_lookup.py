@@ -404,6 +404,10 @@ class LLMCacheLookup:
         self.logger = logging.getLogger(__name__)
         self.similarity_threshold = similarity_threshold
         self._model: Optional[SentenceTransformer] = None
+        # Track last best similarity for external access (e.g., logging on miss)
+        self.last_best_similarity: Optional[float] = None
+        # Track last best matched prompt text for external access
+        self.last_best_prompt_text: Optional[str] = None
     
     def _ensure_model(self) -> None:
         """Load the SentenceTransformer model once lazily."""
@@ -449,6 +453,7 @@ class LLMCacheLookup:
             # Scan user-specific entries for best semantic match
             best_score = -1.0
             best_entry_key: Optional[str] = None
+            best_prompt_text: Optional[str] = None
             # Prefer indexed keys for this user
             candidate_keys = self.cache_lookup._user_index.get(api_key_hash, [])
             if not candidate_keys:
@@ -471,6 +476,7 @@ class LLMCacheLookup:
                 if score > best_score:
                     best_score = score
                     best_entry_key = key
+                    best_prompt_text = meta.get('prompt_text') if isinstance(meta, dict) else None
             
             lookup_ms = int((time.time() - scan_start) * 1000)
             metrics_collector.record_cache_lookup(
@@ -491,13 +497,21 @@ class LLMCacheLookup:
                     # Attach similarity to response metadata
                     cached_response['similarity'] = best_score
                     self.logger.info(f"Semantic cache hit (score={best_score:.3f}) for key: {best_entry_key[:16]}...")
+                    # store for external access
+                    self.last_best_similarity = best_score
+                    self.last_best_prompt_text = best_prompt_text
                     return True, cached_response
             
             self.logger.debug("Semantic cache miss (no entry above threshold)")
+            # store for external access
+            self.last_best_similarity = best_score
+            self.last_best_prompt_text = best_prompt_text
             return False, None
                 
         except Exception as e:
             self.logger.error(f"Error getting LLM response from cache: {str(e)}")
+            self.last_best_similarity = -1.0
+            self.last_best_prompt_text = None
             return False, None
     
     def cache_llm_response(self, api_key: str, request_data: Dict[str, Any], 
