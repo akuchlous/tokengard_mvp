@@ -309,6 +309,12 @@ def proxy_endpoint():
     is_valid_json, data, json_error = request_validator.validate_json_request(client_ip)
     if not is_valid_json:
         return jsonify(json_error), 400
+    # Accept "message" as alias for "text" (UX robustness for test page)
+    try:
+        if 'text' not in data and isinstance(data.get('message'), str):
+            data['text'] = data['message']
+    except Exception:
+        pass
     
     # Validate API key
     is_valid_key, api_key, key_error = request_validator.validate_api_key(data, client_ip)
