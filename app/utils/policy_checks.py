@@ -304,6 +304,13 @@ class PolicyChecker:
             
             # 2. Banned keywords check (if text provided)
             if text:
+                # Ensure defaults exist for new users with no keywords configured
+                try:
+                    existing_keywords = BannedKeyword.get_user_keywords(user.id)
+                    if not existing_keywords:
+                        BannedKeyword.populate_default_keywords(user.id)
+                except Exception:
+                    pass
                 keyword_result = self.check_banned_keywords(user.id, text, client_ip)
                 if not keyword_result.passed:
                     return keyword_result
