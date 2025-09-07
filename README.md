@@ -73,27 +73,53 @@ Token counting uses OpenAI's tiktoken with model-aware encodings. Per-1k pricing
 - Functions:
   - `count_tokens(text, model)` → token count using tiktoken
   - `estimate_cost(token_count, model, is_output=False)` → USD cost using `pricing.json`
-- Proxy response includes metadata:
+- Proxy response is OpenAI-shaped with one extra field `token_id` (use it to fetch detailed logs). Example success response:
 
 ```json
 {
-  "success": true,
-  "data": {
-    "status": "success",
-    "message": "Request processed successfully",
-    "tokens": {
-      "input_tokens": 12,
-      "output_tokens": 24,
-      "total_tokens": 36
-    },
-    "estimated_cost": {
-      "input": 0.000018,
-      "output": 0.000048,
-      "total": 0.000066
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1712345678,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {"role": "assistant", "content": "Mock LLM response for: ..."},
+      "finish_reason": "stop"
     }
-  }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 24,
+    "total_tokens": 36
+  },
+  "token_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 }
 ```
+
+- Error responses also follow the OpenAI envelope, with the reason in `choices[0].message.content`:
+
+```json
+{
+  "id": "chatcmpl-err",
+  "object": "chat.completion",
+  "created": 1712345678,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {"role": "assistant", "content": "Proxy error (API_KEY_NOT_FOUND): API key not found."},
+      "finish_reason": "stop"
+    }
+  ]
+}
+```
+
+### Secure Proxy Logs Lookup
+
+- Endpoint: `/api/logs/<token_id>`
+- Auth: Requires a valid API key belonging to the owner of the log. The key can be provided via JSON (`{"api_key": "..."}`), query string (`?api_key=...`), or `X-API-Key` header.
+- Returns detailed proxy log and analytics for correlation using `token_id`.
 
 ## Available Make Commands
 
