@@ -164,9 +164,24 @@
     tbody.innerHTML = '';
     logs.slice(0, 50).forEach(l => {
       const tr = document.createElement('tr');
-      const cache = (l.response_body && l.response_body.cache_info && l.response_body.cache_info.from_cache) ? 'hit' : 'miss';
-      const inTok = l.response_body && l.response_body.metrics ? (l.response_body.metrics.input_tokens || '-') : '-';
-      const outTok = l.response_body && l.response_body.metrics ? (l.response_body.metrics.output_tokens || '-') : '-';
+      // response_body is typically a JSON string; parse to inspect cache info if present
+      let cache = 'miss';
+      let inTok = '-';
+      let outTok = '-';
+      try {
+        const bodyObj = typeof l.response_body === 'string' ? JSON.parse(l.response_body) : (l.response_body || {});
+        const c = bodyObj.cache || bodyObj.cache_info;
+        if (c && (c.hit === true || c.cache_hit === true)) {
+          cache = 'hit';
+        }
+        const usage = bodyObj.usage || (bodyObj.metrics || {});
+        if (usage) {
+          inTok = usage.prompt_tokens != null ? usage.prompt_tokens : (usage.input_tokens != null ? usage.input_tokens : '-');
+          outTok = usage.completion_tokens != null ? usage.completion_tokens : (usage.output_tokens != null ? usage.output_tokens : '-');
+        }
+      } catch (_) {
+        cache = 'miss';
+      }
       tr.innerHTML = `
         <td>${formatTime(l.request_timestamp)}</td>
         <td>${l.response_status}</td>
@@ -243,16 +258,13 @@
     const values = labels.map(k => byMinute[k]);
     drawLineChart(document.getElementById('chartRequests'), labels, values, '#667eea');
 
-    // Cache hit vs miss (bar)
+    // Cache hit vs miss (bar) using parsed response_body cache info
     let hits = 0, misses = 0;
     logs.forEach(l => {
-      const body = l.response_body;
-      // We store proxy log details separately; use response_status heuristic + cache_info in details if present
-      // Here assume cache hit recorded in server-side details; fallback to MISS
       try {
-        const obj = typeof body === 'string' ? JSON.parse(body) : body;
-        const cache = obj && obj.cache && obj.cache.hit;
-        if(cache) hits++; else misses++;
+        const obj = typeof l.response_body === 'string' ? JSON.parse(l.response_body) : (l.response_body || {});
+        const c = obj.cache || obj.cache_info;
+        if (c && (c.hit === true || c.cache_hit === true)) hits++; else misses++;
       } catch(_) { misses++; }
     });
     drawBarChart(document.getElementById('chartCache'), ['Hit','Miss'], [hits, misses], ['#28a745','#1967d2']);

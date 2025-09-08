@@ -171,15 +171,20 @@ def click_test_for_second_key(driver):
         print(f"Failed to click Test for second key: {e}")
 
 def set_test_payload_text(driver, text_value):
-    # On the test page, set the payload textarea to include banned text
-    wait_ms(300)
+    # Scroll to payload, set it, brief delay, and click Test API Key
     try:
         textarea = driver.find_element("css selector", "#payload")
+        try:
+            driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth'});", textarea)
+            wait_ms(500)
+        except Exception:
+            pass
         payload = '{"text": "%s"}' % text_value.replace('"', '\\"')
         textarea.clear()
         textarea.send_keys(payload)
         print("Set test payload to:", payload)
-        wait_ms(300)
+        wait_ms(500)
+        click_test_api_key(driver)
     except Exception as e:
         print(f"Failed to set test payload: {e}")
 
@@ -214,8 +219,6 @@ def run_cache_demo(driver):
         # 1) Cold call
         scroll_to_payload()
         set_test_payload_text(driver, "what is the significance of number 42")
-        wait_ms(1000)
-        click_test_api_key(driver)
         scroll_to_results(driver)
         wait_ms(500)
         scroll_to_log_details()
@@ -224,8 +227,6 @@ def run_cache_demo(driver):
         # 2) Semantically similar call (expect cache hit)
         scroll_to_payload()
         set_test_payload_text(driver, "tell me about 42 number")
-        wait_ms(1000)
-        click_test_api_key(driver)
         scroll_to_results(driver)
         wait_ms(1000)
         scroll_to_log_details()
@@ -234,8 +235,6 @@ def run_cache_demo(driver):
         # 3) Another similar variant
         scroll_to_payload()
         set_test_payload_text(driver, "tell me number 42 in detail")
-        wait_ms(1000)
-        click_test_api_key(driver)
         scroll_to_results(driver)
         wait_ms(1000)
         scroll_to_log_details()
@@ -322,8 +321,7 @@ def main():
         login(driver, demo_email, password)
         click_view_api_keys(driver)
         click_test_for_second_key(driver)
-        set_test_payload_text(driver, "hello adult! check LLM for banned keyword \"adult\"")
-        click_test_api_key(driver)
+        set_test_payload_text(driver, "hello adult! check LLM for banned keyword - adult ")
         # Additional test: cold vs cache responses for semantically similar prompts
         run_cache_demo(driver)
         # click_back_to_keys(driver)
