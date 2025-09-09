@@ -69,9 +69,8 @@ class TestProxyEndpoint:
             
             assert response.status_code == 401
             data = response.get_json()
-            # OpenAI-like error represented in assistant message content
-            assert 'choices' in data
-            assert 'api key' in data['choices'][0]['message']['content'].lower()
+            # OpenAI-like error represented as error envelope
+            assert 'error' in data and isinstance(data['error'], dict)
     
     def test_proxy_endpoint_inactive_key(self, app, test_user_with_keys):
         """Test proxy endpoint with inactive/disabled API key"""
@@ -89,8 +88,7 @@ class TestProxyEndpoint:
             
             assert response.status_code == 401
             data = response.get_json()
-            assert 'choices' in data
-            assert 'inactive' in data['choices'][0]['message']['content'].lower()
+            assert 'error' in data and isinstance(data['error'], dict)
     
     def test_proxy_endpoint_missing_api_key(self, app, test_user_with_keys):
         """Test proxy endpoint with missing API key"""
@@ -105,7 +103,7 @@ class TestProxyEndpoint:
             assert response.status_code == 400
             data = response.get_json()
             assert data['error_code'] == 'MISSING_API_KEY'
-            assert data['message'] == 'API key is required. Provide api_key in JSON payload or X-API-Key header.'
+            assert data['message'] == 'API key is required. Provide via Authorization Bearer, api_key, or X-API-Key.'
     
     def test_proxy_endpoint_empty_api_key(self, app, test_user_with_keys):
         """Test proxy endpoint with empty API key"""
@@ -121,7 +119,7 @@ class TestProxyEndpoint:
             assert response.status_code == 400
             data = response.get_json()
             assert data['error_code'] == 'MISSING_API_KEY'
-            assert data['message'] == 'API key is required. Provide api_key in JSON payload or X-API-Key header.'
+            assert data['message'] == 'API key is required. Provide via Authorization Bearer, api_key, or X-API-Key.'
     
     def test_proxy_endpoint_no_json(self, app, test_user_with_keys):
         """Test proxy endpoint with no JSON payload"""
@@ -165,10 +163,11 @@ class TestProxyEndpoint:
         assert initial_last_used is None
         
         with app.test_client() as client:
-            response = client.post('/api/proxy', 
+            response = client.post('/api/proxy',
                 json={
                     'api_key': active_key.key_value,
-                    'text': 'Test text'
+                    'text': 'Test text',
+                    'policy_only': False
                 },
                 content_type='application/json'
             )

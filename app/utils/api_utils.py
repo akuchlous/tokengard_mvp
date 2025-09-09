@@ -80,17 +80,22 @@ class APIRequestValidator:
         Returns:
             Tuple of (is_valid, api_key, error_response)
         """
-        # Get API key from either JSON payload or X-API-Key header
-        api_key = data.get('api_key', '').strip()
+        # Get API key from JSON payload, Authorization header (Bearer), or X-API-Key header
+        api_key = (data.get('api_key') or '').strip()
         if not api_key:
-            api_key = request.headers.get('X-API-Key', '').strip()
+            # Authorization: Bearer <key>
+            auth_header = (request.headers.get('Authorization') or '').strip()
+            if auth_header.lower().startswith('bearer '):
+                api_key = auth_header.split(' ', 1)[1].strip()
+        if not api_key:
+            api_key = (request.headers.get('X-API-Key') or '').strip()
         
         if not api_key:
             self.logger.warning(f"Missing API key from {client_ip}")
             return False, None, {
                 'success': False,
                 'error_code': 'MISSING_API_KEY',
-                'message': 'API key is required. Provide api_key in JSON payload or X-API-Key header.'
+                'message': 'API key is required. Provide via Authorization Bearer, api_key, or X-API-Key.'
             }
         
         return True, api_key, None

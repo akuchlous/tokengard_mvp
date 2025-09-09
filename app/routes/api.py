@@ -11,8 +11,7 @@ API Routes
 FLOW OVERVIEW
 - /api/proxy [POST]
   • Validates request and policies, performs semantic cache lookup, calls LLM on miss, logs/metrics.
-- /api/policy [POST]
-  • Runs policy checks and returns structured pass/fail info without invoking the proxy.
+  • Policy-only mode supported via request flag.
 - /api/cache/*
   • Stats/clear/invalidate per-user cache.
 - /api/clear-database [POST]
@@ -266,6 +265,7 @@ def get_proxy_log_by_id(proxy_id):
     except Exception as e:
         return jsonify({'error': f'Failed to retrieve log: {str(e)}'}), 500
 
+@api_bp.route('/v1/chat/completions', methods=['POST'])
 @api_bp.route('/proxy', methods=['POST'])
 def proxy_endpoint():
     """
@@ -309,9 +309,21 @@ def proxy_endpoint():
     is_valid_json, data, json_error = request_validator.validate_json_request(client_ip)
     if not is_valid_json:
         return jsonify(json_error), 400
-    # Accept "message" as alias for "text" (UX robustness for test page)
+    # Accept "message" as alias for "text" (legacy test UI) OR accept OpenAI-style messages array.
     try:
-        if 'text' not in data and isinstance(data.get('message'), str):
+        if 'messages' in data and isinstance(data['messages'], list):
+            # Derive text for policy/cache from user messages concatenation
+            joined = []
+            for m in data['messages']:
+                try:
+                    if isinstance(m, dict) and m.get('role') == 'user' and isinstance(m.get('content'), str):
+                        joined.append(m.get('content'))
+                except Exception:
+                    continue
+            derived_text = ('\n\n'.join(joined)).strip()
+            if derived_text:
+                data['text'] = derived_text
+        elif 'text' not in data and isinstance(data.get('message'), str):
             data['text'] = data['message']
     except Exception:
         pass
@@ -324,6 +336,13 @@ def proxy_endpoint():
     # so that proxy processing (which reads from request_data) is consistent.
     data['api_key'] = api_key
     
+    # Default: policy-only unless explicitly disabled
+    try:
+        if 'policy_only' not in data:
+            data['policy_only'] = True
+    except Exception:
+        data['policy_only'] = True
+
     # Process request through LLM proxy
     from ..utils.llm_proxy import llm_proxy
     
@@ -331,10 +350,7 @@ def proxy_endpoint():
         proxy_response = llm_proxy.process_request(data, client_ip, user_agent)
         
         # Convert to appropriate response format
-        if proxy_response.success:
-            return jsonify(proxy_response.to_dict()), proxy_response.status_code
-        else:
-            return jsonify(proxy_response.to_dict()), proxy_response.status_code
+        return jsonify(proxy_response.to_dict()), proxy_response.status_code
             
     except Exception as e:
         current_app.logger.error(f"Error in proxy endpoint: {str(e)}", exc_info=True)
@@ -922,62 +938,4 @@ def invalidate_user_cache(api_key):
         return jsonify({'error': f'Failed to invalidate user cache: {str(e)}'}), 500
 
 
-@api_bp.route('/policy', methods=['POST'])
-def policy_check_endpoint():
-    """
-    Direct policy check endpoint for validating API keys and content.
-    
-    This endpoint can be called independently to check policies without
-    going through the full LLM proxy pipeline.
-    
-    Expects JSON payload with:
-    - api_key: The API key to validate (required)
-    - text: The text to check (required)
-    
-    Returns:
-    - {"success": true, "data": {...}} if all checks pass
-    - {"success": false, "error_code": "...", "message": "..."} if checks fail
-    """
-    # Get request metadata
-    client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR'))
-    user_agent = request.headers.get('User-Agent')
-    
-    # Use shared validation utilities
-    from ..utils.api_utils import request_validator, response_formatter
-    
-    # Validate JSON request
-    is_valid_json, data, json_error = request_validator.validate_json_request(client_ip)
-    if not is_valid_json:
-        return jsonify(json_error), 400
-    
-    # Validate API key
-    is_valid_key, api_key, key_error = request_validator.validate_api_key(data, client_ip)
-    if not is_valid_key:
-        return jsonify(key_error), 400
-    
-    # Validate text content (required for policy checks)
-    is_valid_text, text, text_error = request_validator.validate_text_content(data, client_ip, required=True)
-    if not is_valid_text:
-        return jsonify(text_error), 400
-    
-    # Run policy checks
-    from ..utils.policy_checks import policy_checker
-    
-    try:
-        policy_result = policy_checker.run_all_checks(api_key, text, client_ip)
-        
-        if policy_result.passed:
-            # All checks passed
-            response_data = response_formatter.format_policy_success_response(policy_result, text)
-            return jsonify(response_data), 200
-        else:
-            # Policy check failed
-            response_data, status_code = response_formatter.format_policy_failure_response(policy_result, text)
-            return jsonify(response_data), status_code
-            
-    except Exception as e:
-        current_app.logger.error(f"Error in policy check endpoint: {str(e)}", exc_info=True)
-        error_response = response_formatter.format_server_error_response(
-            message='Internal server error during policy validation. Please try again later.'
-        )
-        return jsonify(error_response), 500
+## (Removed) Dedicated policy endpoint; use /api/proxy or /v1/chat/completions with policy_only

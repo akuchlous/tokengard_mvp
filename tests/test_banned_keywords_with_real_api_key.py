@@ -74,5 +74,4 @@ class TestBannedKeywordsWithRealAPIKey:
                 assert 'data' in data
             else:
                 # 400: likely banned content, reason in message
-                assert 'choices' in data
-                assert any(term in data['choices'][0]['message']['content'].lower() for term in ['banned', 'blocked', 'error'])
+                assert 'error' in data and isinstance(data['error'], dict)

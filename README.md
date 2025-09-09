@@ -97,23 +97,43 @@ Token counting uses OpenAI's tiktoken with model-aware encodings. Per-1k pricing
 }
 ```
 
-- Error responses also follow the OpenAI envelope, with the reason in `choices[0].message.content`:
+- Error responses follow the OpenAI error envelope:
 
 ```json
 {
-  "id": "chatcmpl-err",
-  "object": "chat.completion",
-  "created": 1712345678,
-  "model": "gpt-4o",
-  "choices": [
-    {
-      "index": 0,
-      "message": {"role": "assistant", "content": "Proxy error (API_KEY_NOT_FOUND): API key not found."},
-      "finish_reason": "stop"
-    }
-  ]
+  "error": {
+    "message": "API key not found.",
+    "type": "API_KEY_NOT_FOUND",
+    "param": null,
+    "code": "API_KEY_NOT_FOUND"
+  }
 }
 ```
+
+### Calling the Proxy (OpenAI-compatible)
+
+- Endpoint: `POST /v1/chat/completions` (alias: `POST /api/proxy`)
+- Auth: `Authorization: Bearer <tokengard_api_key>` (Tokengard key only)
+- Body: either OpenAI-style `messages` or a simple `text` string
+
+Request example (OpenAI-style):
+
+```json
+{
+  "model": "gpt-4o",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Say hello"}
+  ],
+  "temperature": 0.7,
+  "max_tokens": 128
+}
+```
+
+Notes:
+- Clients send only the Tokengard API key. Do not send an OpenAI key. The proxy loads provider credentials from the server-side environment variable `OPEN_AI_API_KEYS` (comma-separated keys) and uses them when calling the provider in production.
+- In test/dev without `OPEN_AI_API_KEYS`, the proxy returns a stubbed OpenAI-shaped response.
+- We also accept `text` and will wrap it into a minimal `messages` array internally.
 
 ### Secure Proxy Logs Lookup
 
@@ -180,3 +200,67 @@ This app is ready for AWS deployment with:
 - Flask 3.0.0
 - pytest for testing
 - gunicorn for production
+
+## Proxy Flow Diagram
+
+```mermaid
+flowchart TD
+  A[Client App] -->|Authorization: Bearer <tokengard_key>\nPOST /v1/chat/completions| B[Flask /api/proxy alias]
+  A -->|Optional: messages or text| B
+  B --> C[APIRequestValidator]
+  C -->|size/rate ok| D[Extract Tokengard API key]
+  C -->|invalid JSON / too large / rate limited| E[OpenAI-style Error Envelope]
+  D --> F[PolicyChecker]
+  F -->|fail (key inactive, banned word, etc.)| E
+  F -->|pass| G[LLMCacheLookup]
+  G -->|semantic cache hit| H[Build OpenAI-shaped response + proxy_id]
+  H --> I[ProxyLogger + Metrics]
+  I --> J[Return 200]
+  G -->|miss| K{OPEN_AI_API_KEYS set?}
+  K -->|yes| L[Call OpenAI Chat Completions]
+  K -->|no (dev/test)| M[Return stubbed OpenAI-shaped response]
+  L --> N[Normalize provider response]
+  N --> O[Cache response (per-user scope)]
+  M --> O
+  O --> I
+
+  subgraph Observability & Analytics
+    I --> P[ProxyLog row]
+    I --> Q[ProxyAnalytics]
+    I --> R[ProviderAnalytics]
+  end
+
+  S[Logs API /api/logs/<proxy_id>] -->|Requires Tokengard key\n(owner-only)| P
+```
+
+### Sequence (OpenAI-style request)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as Client
+  participant F as Flask
+  participant V as Validator
+  participant P as PolicyChecker
+  participant Cache as LLMCache
+  participant OAI as OpenAI
+  participant Log as ProxyLogger/Analytics
+
+  C->>F: POST /v1/chat/completions\nAuthorization: Bearer <tokengard_key>\n{ model, messages }
+  F->>V: validate size/json/rate/key
+  V-->>F: ok
+  F->>P: run_all_checks(key, text)
+  P-->>F: passed
+  F->>Cache: get_llm_response(user_scope, request)
+  alt Cache hit
+    Cache-->>F: cached response
+    F->>Log: log_response(cache_hit=true)
+    F-->>C: 200 OpenAI-shaped + proxy_id
+  else Cache miss
+    F->>OAI: chat.completions.create(...)
+    OAI-->>F: completion
+    F->>Cache: cache_llm_response(...)
+    F->>Log: log_response(cache_hit=false)
+    F-->>C: 200 OpenAI-shaped + proxy_id
+  end
+```

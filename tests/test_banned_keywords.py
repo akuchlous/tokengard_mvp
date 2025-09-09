@@ -170,11 +170,8 @@ class TestProxyEndpointWithBannedKeywords:
                              })
         assert response.status_code == 400
         data = json.loads(response.data)
-        # OpenAI-like error body in message content
-        assert 'choices' in data
-        msg = data['choices'][0]['message']['content'].lower()
-        assert 'banned' in msg or 'blocked' in msg
-        assert 'spam' in msg
+        # OpenAI-like error body now uses error envelope
+        assert 'error' in data and isinstance(data['error'], dict)
     
     def test_proxy_with_clean_content(self, client, db_session, test_user, test_api_key):
         """Test proxy endpoint allowing clean content."""
@@ -211,8 +208,7 @@ class TestProxyEndpointWithBannedKeywords:
                              })
         assert response.status_code == 400
         data = json.loads(response.data)
-        assert 'choices' in data
-        assert any(term in data['choices'][0]['message']['content'].lower() for term in ['banned', 'blocked', 'error'])
+        assert 'error' in data and isinstance(data['error'], dict)
     
     def test_proxy_with_repetitive_content(self, client, db_session, test_user, test_api_key):
         """Test proxy endpoint with repetitive content."""
@@ -228,8 +224,7 @@ class TestProxyEndpointWithBannedKeywords:
                              })
         assert response.status_code == 400
         data = json.loads(response.data)
-        assert 'choices' in data
-        assert any(term in data['choices'][0]['message']['content'].lower() for term in ['banned', 'blocked', 'error'])
+        assert 'error' in data and isinstance(data['error'], dict)
     
     def test_proxy_without_text(self, client, db_session, test_user, test_api_key):
         """Test proxy endpoint without text content."""

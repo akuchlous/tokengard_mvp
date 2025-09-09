@@ -76,39 +76,32 @@ class LLMProxy:
             # Log incoming request
             proxy_logger.log_request(request_data, client_ip, user_agent, request_id)
             
-            # Extract API key and text
+            # Extract API key and text/messages
             api_key = request_data.get('api_key', '').strip()
             text = request_data.get('text', '')
+            messages = request_data.get('messages') if isinstance(request_data.get('messages'), list) else None
             model = (request_data.get('model') or 'gpt-4o')
             temperature = request_data.get('temperature') if request_data.get('temperature') is not None else 0.7
+            max_tokens = request_data.get('max_tokens')
+            top_p = request_data.get('top_p')
+            presence_penalty = request_data.get('presence_penalty')
+            frequency_penalty = request_data.get('frequency_penalty')
+            stop = request_data.get('stop')
+            policy_only = bool(request_data.get('policy_only', False))
             
             # 1. Policy checks
             policy_result = policy_checker.run_all_checks(api_key, text, client_ip)
             if not policy_result.passed:
-                # OpenAI-like chat completion with textual reason for errors
+                # OpenAI-style error envelope
                 reason = policy_result.message or 'Request validation failed'
                 status = 401 if policy_result.error_code in ['API_KEY_NOT_FOUND','API_KEY_INACTIVE','USER_ACCOUNT_INACTIVE'] else 400
                 error_chat = {
-                    'id': f"chatcmpl-{uuid.uuid4().hex[:29]}",
-                    'object': 'chat.completion',
-                    'created': int(time.time()),
-                    'model': model,
-                    'choices': [
-                        {
-                            'index': 0,
-                            'message': {
-                                'role': 'assistant',
-                                'content': f"Proxy error ({policy_result.error_code}): {reason}"
-                            },
-                            'finish_reason': 'stop'
-                        }
-                    ],
-                    'usage': {
-                        'prompt_tokens': 0,
-                        'completion_tokens': 0,
-                        'total_tokens': 0
-                    },
-                    'proxy_id': request_id
+                    'error': {
+                        'message': f"{reason}",
+                        'type': policy_result.error_code,
+                        'param': None,
+                        'code': policy_result.error_code
+                    }
                 }
                 response = LLMProxyResponse(
                     success=False,
@@ -146,6 +139,45 @@ class LLMProxy:
                 input_tokens = tk_count_tokens(text or '', model)
             except Exception:
                 input_tokens = 0
+
+            # If policy-only, return a lightweight success envelope without calling cache/provider
+            if policy_only:
+                ok_chat = {
+                    'id': f"chatcmpl-{uuid.uuid4().hex[:29]}",
+                    'object': 'chat.completion',
+                    'created': int(time.time()),
+                    'model': model,
+                    'choices': [
+                        {
+                            'index': 0,
+                            'message': {
+                                'role': 'assistant',
+                                'content': 'Policy checks passed (policy_only=true). No provider call performed.'
+                            },
+                            'finish_reason': 'stop'
+                        }
+                    ],
+                    'usage': {
+                        'prompt_tokens': 0,
+                        'completion_tokens': 0,
+                        'total_tokens': 0
+                    },
+                    'proxy_id': request_id
+                }
+                response = LLMProxyResponse(success=True, status_code=200, data=ok_chat)
+                processing_time = int((time.time() - start_time) * 1000)
+                log_payload = dict(response.to_dict())
+                try:
+                    log_payload['cache_info'] = { 'policy_only': True, 'cache_hit': False }
+                except Exception:
+                    pass
+                proxy_logger.log_response(request_id, log_payload,
+                                          response.status_code, processing_time,
+                                          api_key_record, client_ip, user_agent, data=request_data,
+                                          model=model, from_cache=False,
+                                          token_info=None, cost_info=None)
+                metrics_collector.record_request('/api/proxy', response.status_code, processing_time, client_ip)
+                return response
 
             # 3. Check cache
             cache_found, cached_response = llm_cache_lookup.get_llm_response(
@@ -190,7 +222,17 @@ class LLMProxy:
                 return response
             
             # 4. Forward to LLM service
-            llm_response = self._call_llm_service(text, model, temperature)
+            llm_response = self._call_llm_service(
+                text=text,
+                model=model,
+                temperature=temperature,
+                messages=messages,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                presence_penalty=presence_penalty,
+                frequency_penalty=frequency_penalty,
+                stop=stop,
+            )
             
             if llm_response['success']:
                 # Cache the response
@@ -209,29 +251,15 @@ class LLMProxy:
                     data=chat
                 )
             else:
-                # OpenAI-like chat completion with textual reason on LLM service error
+                # OpenAI-style error envelope on provider failure
                 reason = 'LLM service temporarily unavailable. Please try again later.'
                 error_chat = {
-                    'id': f"chatcmpl-{uuid.uuid4().hex[:29]}",
-                    'object': 'chat.completion',
-                    'created': int(time.time()),
-                    'model': model,
-                    'choices': [
-                        {
-                            'index': 0,
-                            'message': {
-                                'role': 'assistant',
-                                'content': f"Proxy error (LLM_SERVICE_ERROR): {reason}"
-                            },
-                            'finish_reason': 'stop'
-                        }
-                    ],
-                    'usage': {
-                        'prompt_tokens': 0,
-                        'completion_tokens': 0,
-                        'total_tokens': 0
-                    },
-                    'proxy_id': request_id
+                    'error': {
+                        'message': f"{reason}",
+                        'type': 'LLM_SERVICE_ERROR',
+                        'param': None,
+                        'code': 'LLM_SERVICE_ERROR'
+                    }
                 }
                 response = LLMProxyResponse(
                     success=False,
@@ -320,7 +348,8 @@ class LLMProxy:
             return response
     
     def _call_llm_service(self, text: str, model: str = 'default', 
-                         temperature: float = 0.7) -> Dict[str, Any]:
+                         temperature: float = 0.7, messages=None, max_tokens=None, top_p=None,
+                         presence_penalty=None, frequency_penalty=None, stop=None) -> Dict[str, Any]:
         """
         Call the LLM service. Uses OpenAI in production if `OPEN_AI_API_KEYS` is set,
         otherwise falls back to a stubbed response.
@@ -346,11 +375,15 @@ class LLMProxy:
             should_use_openai = (not is_testing) and len(api_keys) > 0
 
             if should_use_openai:
-                return self._call_openai(text=text, model=model, temperature=temperature, api_keys=api_keys)
+                return self._call_openai(text=text, model=model, temperature=temperature, api_keys=api_keys, messages=messages, max_tokens=max_tokens, top_p=top_p, presence_penalty=presence_penalty, frequency_penalty=frequency_penalty, stop=stop)
 
             # Fallback to stub implementation
             self.logger.info(f"Using stub LLM response (testing or no OPEN_AI_API_KEYS). model={model}, temperature={temperature}")
             time.sleep(0.05)
+            assistant_text = (
+                f"Mock LLM response for: {text[:50]}..." if not (messages and isinstance(messages, list))
+                else f"Mock LLM response for {len(messages)} messages."
+            )
             mock_response = {
                 'id': f"chatcmpl-{uuid.uuid4().hex[:29]}",
                 'object': 'chat.completion',
@@ -361,7 +394,7 @@ class LLMProxy:
                         'index': 0,
                         'message': {
                             'role': 'assistant',
-                            'content': f"Mock LLM response for: {text[:50]}..."
+                            'content': assistant_text
                         },
                         'finish_reason': 'stop'
                     }
@@ -378,7 +411,7 @@ class LLMProxy:
             self.logger.error(f"Error choosing LLM service path: {str(e)}", exc_info=True)
             return {'success': False, 'error': str(e)}
 
-    def _call_openai(self, text: str, model: str, temperature: float, api_keys: list) -> Dict[str, Any]:
+    def _call_openai(self, text: str, model: str, temperature: float, api_keys: list, messages=None, max_tokens=None, top_p=None, presence_penalty=None, frequency_penalty=None, stop=None) -> Dict[str, Any]:
         """Call OpenAI Chat Completions with structured logging and error handling."""
         try:
             try:
@@ -406,14 +439,30 @@ class LLMProxy:
             client = OpenAI(api_key=api_key)
 
             started_at = time.time()
-            completion = client.chat.completions.create(
-                model=model,
-                messages=[
+            # Prepare messages: prefer provided messages, otherwise wrap text
+            if messages and isinstance(messages, list):
+                final_messages = messages
+            else:
+                final_messages = [
                     { 'role': 'system', 'content': 'You are a helpful assistant.' },
                     { 'role': 'user', 'content': text or '' },
-                ],
-                temperature=float(temperature) if temperature is not None else 0.7,
-            )
+                ]
+            kwargs = {
+                'model': model,
+                'messages': final_messages,
+                'temperature': float(temperature) if temperature is not None else 0.7,
+            }
+            if max_tokens is not None:
+                kwargs['max_tokens'] = int(max_tokens)
+            if top_p is not None:
+                kwargs['top_p'] = float(top_p)
+            if presence_penalty is not None:
+                kwargs['presence_penalty'] = float(presence_penalty)
+            if frequency_penalty is not None:
+                kwargs['frequency_penalty'] = float(frequency_penalty)
+            if stop is not None:
+                kwargs['stop'] = stop
+            completion = client.chat.completions.create(**kwargs)
             elapsed_ms = int((time.time() - started_at) * 1000)
 
             # Normalize to our internal structure similar to stub

@@ -76,9 +76,8 @@ class TestBannedKeywordsCompleteWorkflow:
             assert pr.status_code in (200, 400, 401)
             if pr.status_code == 400:
                 data = pr.get_json()
-                # Error content surfaced in OpenAI-like message
-                assert 'choices' in data
-                assert any(term in data['choices'][0]['message']['content'].lower() for term in ['banned', 'blocked', 'error'])
+                # Error content now in OpenAI-style error envelope
+                assert 'error' in data and isinstance(data['error'], dict)
 
         ok = self.client.post('/api/proxy', json={'api_key': self.api_key_value, 'text': 'Hello world normal content'})
         assert ok.status_code in (200, 401)

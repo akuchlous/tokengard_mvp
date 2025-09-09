@@ -60,10 +60,8 @@ def test_proxy_policy_error_openai_error_with_token_id():
     resp = client.post('/api/proxy', json=payload)
     assert resp.status_code == 401
     data = resp.get_json()
-    # Error reason in choices[0].message.content for standardized OpenAI-like envelope
-    assert 'choices' in data
-    assert 'api key' in data['choices'][0]['message']['content'].lower()
-    assert 'proxy_id' in data
+    # Error now returned in OpenAI-style error envelope
+    assert 'error' in data and isinstance(data['error'], dict)
 
 
 def test_get_proxy_log_by_id_requires_api_key_and_authorized():

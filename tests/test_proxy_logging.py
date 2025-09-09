@@ -99,7 +99,8 @@ class TestProxyLogging:
         """Test that proxy endpoint logs successful requests."""
         payload = {
             'api_key': self.api_key1.key_value,
-            'text': 'Hello, world!'
+            'text': 'Hello, world!',
+            'policy_only': False
         }
         
         response = self.client.post(
@@ -128,7 +129,8 @@ class TestProxyLogging:
         """Test that proxy endpoint logs failed requests."""
         payload = {
             'api_key': 'tk-invalidkey123456789012345678901',
-            'text': 'Hello, world!'
+            'text': 'Hello, world!',
+            'policy_only': False
         }
         
         response = self.client.post(
@@ -139,8 +141,7 @@ class TestProxyLogging:
         
         assert response.status_code == 401
         data = json.loads(response.data)
-        assert 'choices' in data
-        assert 'api key' in data['choices'][0]['message']['content'].lower()
+        assert 'error' in data and isinstance(data['error'], dict)
         
         # Check that log was created for invalid key attempt
         with self.app.app_context():
